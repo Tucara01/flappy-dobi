@@ -5,12 +5,14 @@ import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
 import { HomeTab, ActionsTab, ContextTab, WalletTab } from "~/components/ui/tabs";
+import FlappyBirdGame from "./FlappyBirdGame";
 import { USE_WALLET } from "~/lib/constants";
 import { useNeynarUser } from "../hooks/useNeynarUser";
 
 // --- Types ---
 export enum Tab {
   Home = "home",
+  Game = "game",
   Actions = "actions",
   Context = "context",
   Wallet = "wallet",
@@ -50,7 +52,7 @@ export interface AppProps {
  * ```
  */
 export default function App(
-  { title }: AppProps = { title: "Neynar Starter Kit" }
+  { title }: AppProps = { title: "DOBI BIRD" }
 ) {
   // --- Hooks ---
   const {
@@ -110,6 +112,7 @@ export default function App(
 
         {/* Tab content rendering */}
         {currentTab === Tab.Home && <HomeTab />}
+        {currentTab === Tab.Game && <FlappyBirdGame />}
         {currentTab === Tab.Actions && <ActionsTab />}
         {currentTab === Tab.Context && <ContextTab />}
         {currentTab === Tab.Wallet && <WalletTab />}
