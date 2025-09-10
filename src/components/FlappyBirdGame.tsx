@@ -109,10 +109,10 @@ const FlappyBirdGame: React.FC = () => {
   const GRAVITY = 0.15;
   const JUMP_FORCE = -5;
   const OBSTACLE_SPEED = 4; // 2x
-  const OBSTACLE_GAP = 700; // 2x
+  const OBSTACLE_GAP = 400; // 2x - Reduced gap between obstacles
   const OBSTACLE_WIDTH = 120; // 2x
   const BIRD_SIZE = 60; // 2x - Hitbox size (for collisions)
-  const BIRD_DISPLAY_SIZE = 100; // 2x - Visual size (for rendering)
+  const BIRD_DISPLAY_SIZE = 120; // 2x - Visual size (for rendering) - Made bigger
 
   // Load images
   const [images, setImages] = useState<{[key: string]: HTMLImageElement}>({});
@@ -205,13 +205,33 @@ const FlappyBirdGame: React.FC = () => {
 
   useEffect(() => {
     const loadImages = async () => {
-      const imageNames = ['bird', 'obstacle', 'background', 'sky'];
+      const imageNames = ['bird', 'obstacle', 'obstacle1', 'filler', 'background', 'sky'];
       const loadedImages: {[key: string]: HTMLImageElement} = {};
 
       try {
         for (const name of imageNames) {
           const img = new Image();
-          const imagePath = `/game/sprites/${name === 'bird' ? 'personaje' : name === 'obstacle' ? 'tubo v3' : name === 'background' ? 'background' : 'sky'}.png`;
+          let imagePath = '';
+          switch (name) {
+            case 'bird':
+              imagePath = '/game/sprites/personaje.png';
+              break;
+            case 'obstacle':
+              imagePath = '/game/sprites/obstacle.png';
+              break;
+            case 'obstacle1':
+              imagePath = '/game/sprites/obstacle1.png';
+              break;
+            case 'filler':
+              imagePath = '/game/sprites/filler.png';
+              break;
+            case 'background':
+              imagePath = '/game/sprites/background.png';
+              break;
+            case 'sky':
+              imagePath = '/game/sprites/sky.png';
+              break;
+          }
           img.src = imagePath;
           
           console.log(`Loading image: ${imagePath}`);
@@ -281,8 +301,8 @@ const FlappyBirdGame: React.FC = () => {
       const newRotation = Math.min(Math.max(newVelocity * 3, -30), 30);
 
       // Check ceiling collision
-      if (newY < 200) { // 2x
-        newY = 200;
+      if (newY < 25) { // 2x - Ceiling at 25px from top
+        newY = 25;
         return { ...prevBird, y: newY, velocity: 0, rotation: 0 };
       }
 
@@ -344,7 +364,7 @@ const FlappyBirdGame: React.FC = () => {
       newObstacles.forEach(obstacle => {
         if (!obstacle.passed && obstacle.x + OBSTACLE_WIDTH < bird.x) {
           obstacle.passed = true;
-          const points = 1; // Fixed points, no multiplier
+          const points = 0.5; // Fixed points, divided by 2
           setGameState(prev => {
             const newScore = prev.score + points;
             if (newScore > lastScore) {
@@ -539,26 +559,63 @@ const FlappyBirdGame: React.FC = () => {
       ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
     }
 
-    // Draw obstacles
-    if (images.obstacle) {
+    // Draw obstacles with new sprite system
+    obstacles.forEach(obstacle => {
       // Enable image smoothing for better quality
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       
-      obstacles.forEach(obstacle => {
-        // Top obstacle
+      // Top obstacle (pointing up) - use obstacle1.png
+      if (images.obstacle1) {
+        // Draw filler from top of canvas to the obstacle
+        if (images.filler) {
+          const fillerHeight = 50; // Height of each filler piece
+          const obstacleHeight = 50; // Height of the main obstacle sprite
+          const fillerEndY = Math.max(0, obstacle.topHeight - obstacleHeight);
+          
+          for (let y = 0; y < fillerEndY; y += fillerHeight) {
+            const currentFillerHeight = Math.min(fillerHeight, fillerEndY - y);
+            ctx.drawImage(
+              images.filler,
+              obstacle.x, y, OBSTACLE_WIDTH, currentFillerHeight
+            );
+          }
+        }
+        
+        // Draw the main top obstacle (pointing up) at the bottom of the top section
+        const obstacleHeight = 50; // Height of the main obstacle sprite
+        ctx.drawImage(
+          images.obstacle1,
+          obstacle.x, obstacle.topHeight - obstacleHeight, OBSTACLE_WIDTH, obstacleHeight
+        );
+      }
+      
+      // Bottom obstacle (pointing down) - use obstacle.png
+      if (images.obstacle) {
+        const obstacleHeight = 50; // Height of the main obstacle sprite
+        
+        // Draw the main bottom obstacle (pointing down) at the top of the bottom section
         ctx.drawImage(
           images.obstacle,
-          obstacle.x, 0, OBSTACLE_WIDTH, obstacle.topHeight
+          obstacle.x, obstacle.bottomY, OBSTACLE_WIDTH, obstacleHeight
         );
-        // Bottom obstacle
-        ctx.drawImage(
-          images.obstacle,
-          obstacle.x, obstacle.bottomY, OBSTACLE_WIDTH, canvas.height - obstacle.bottomY
-        );
-      });
-    } else {
-      // Fallback: simple rectangles for obstacles
+        
+        // Draw filler from the obstacle to the bottom of canvas
+        if (images.filler) {
+          const fillerHeight = 50; // Height of each filler piece
+          for (let y = obstacle.bottomY + obstacleHeight; y < canvas.height; y += fillerHeight) {
+            const currentFillerHeight = Math.min(fillerHeight, canvas.height - y);
+            ctx.drawImage(
+              images.filler,
+              obstacle.x, y, OBSTACLE_WIDTH, currentFillerHeight
+            );
+          }
+        }
+      }
+    });
+    
+    // Fallback: simple rectangles for obstacles if images not loaded
+    if (!images.obstacle && !images.obstacle1) {
       ctx.fillStyle = '#228B22';
       obstacles.forEach(obstacle => {
         // Top obstacle
@@ -713,32 +770,18 @@ const FlappyBirdGame: React.FC = () => {
 
       {/* UI Overlay */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        {/* Score */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
-          <AnimatedText animation="glow" delay={0}>
-            <NumberDisplay
-              value={gameState.score}
-              digits={3}
-              size={50}
-              color="#ffffff"
-              glowColor="#00ff88"
-            />
-          </AnimatedText>
-        </div>
-
-        {/* High Score */}
-        {gameState.highScore > 0 && (
-          <div className="absolute top-16 left-1/2 transform -translate-x-1/2">
-            <div className="text-white text-sm text-center">
-              <div>HIGH SCORE</div>
+        {/* Score - Only during gameplay */}
+        {gameState.isPlaying && !gameState.isGameOver && (
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
+            <AnimatedText animation="glow" delay={0}>
               <NumberDisplay
-                value={gameState.highScore}
+                value={gameState.score}
                 digits={3}
-                size={30}
-                color="#ffff00"
-                glowColor="#ffaa00"
+                size={50}
+                color="#ffffff"
+                glowColor="#00ff88"
               />
-            </div>
+            </AnimatedText>
           </div>
         )}
 
@@ -791,7 +834,7 @@ const FlappyBirdGame: React.FC = () => {
             <AnimatedText animation="bounce" delay={0}>
               <div className="text-center text-white mb-8">
                 <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-                  DOBI BIRD
+                  Flappy DOBI
                 </h1>
                 <div className="text-xl mb-8 animate-pulse">Toca para empezar</div>
               </div>
