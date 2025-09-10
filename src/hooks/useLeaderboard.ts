@@ -60,7 +60,7 @@ export const useLeaderboard = () => {
       setLeaderboard({
         entries: sortedScores,
         userRank: context?.user ? sortedScores.findIndex((entry: LeaderboardEntry) => entry.fid === context.user.fid) + 1 : undefined,
-        userBestScore: context?.user ? Math.max(...sortedScores.filter((entry: LeaderboardEntry) => entry.fid === context.user.fid).map(e => e.score)) : undefined
+        userBestScore: context?.user ? Math.max(...sortedScores.filter((entry: LeaderboardEntry) => entry.fid === context.user.fid).map((e: LeaderboardEntry) => e.score)) : undefined
       });
 
       return true;
@@ -91,7 +91,7 @@ export const useLeaderboard = () => {
       setLeaderboard({
         entries: existingScores,
         userRank: context?.user ? existingScores.findIndex((entry: LeaderboardEntry) => entry.fid === context.user.fid) + 1 : undefined,
-        userBestScore: context?.user ? Math.max(...existingScores.filter((entry: LeaderboardEntry) => entry.fid === context.user.fid).map(e => e.score)) : undefined
+        userBestScore: context?.user ? Math.max(...existingScores.filter((entry: LeaderboardEntry) => entry.fid === context.user.fid).map((e: LeaderboardEntry) => e.score)) : undefined
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar leaderboard');
@@ -112,28 +112,28 @@ export const useLeaderboard = () => {
       }
 
       // Create share text
-      const shareText = `¡Acabo de conseguir ${score} puntos en DOBI BIRD! 🐦\n\n¿Puedes superar mi puntuación?`;
+      const shareText = `I just scored ${score} points in DOBI BIRD! 🐦\n\nCan you beat my score?`;
       
       if (context?.user) {
         // Use Farcaster's share functionality
-        await sdk.actions.share({
+        await (sdk.actions as any).share({
           text: shareText,
           embeds: [{
             url: window.location.origin,
-            title: 'DOBI BIRD - Juego de Farcaster',
-            description: 'Juega al mejor juego de pájaro volador en Farcaster',
+            title: 'DOBI BIRD - Farcaster Game',
+            description: 'Play the best flying bird game on Farcaster',
             image: `${window.location.origin}/splash.png`
           }]
         });
       } else {
         // Fallback: copy to clipboard
         await navigator.clipboard.writeText(shareText);
-        alert('¡Puntuación copiada al portapapeles! Pégalo donde quieras compartir.');
+        alert('Score copied to clipboard! Paste it wherever you want to share.');
       }
 
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al compartir');
+      setError(err instanceof Error ? err.message : 'Error sharing');
       return false;
     }
   }, []);

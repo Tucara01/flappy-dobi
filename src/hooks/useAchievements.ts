@@ -26,8 +26,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'score_10',
-    title: 'Principiante',
-    description: 'Consigue 10 puntos',
+    title: 'Beginner',
+    description: 'Score 10 points',
     icon: '🌟',
     maxProgress: 10,
     category: 'score',
@@ -35,8 +35,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'score_50',
-    title: 'Experto',
-    description: 'Consigue 50 puntos',
+    title: 'Expert',
+    description: 'Score 50 points',
     icon: '🏆',
     maxProgress: 50,
     category: 'score',
@@ -44,8 +44,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'score_100',
-    title: 'Maestro',
-    description: 'Consigue 100 puntos',
+    title: 'Master',
+    description: 'Score 100 points',
     icon: '👑',
     maxProgress: 100,
     category: 'score',
@@ -53,8 +53,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'score_200',
-    title: 'Leyenda',
-    description: 'Consigue 200 puntos',
+    title: 'Legend',
+    description: 'Score 200 points',
     icon: '💎',
     maxProgress: 200,
     category: 'score',
@@ -131,8 +131,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   // Special achievements
   {
     id: 'perfect_game',
-    title: 'Juego Perfecto',
-    description: 'Consigue 20 puntos sin usar power-ups',
+    title: 'Perfect Game',
+    description: 'Score 20 points without using power-ups',
     icon: '💯',
     maxProgress: 1,
     category: 'special',
@@ -149,8 +149,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'speed_demon',
-    title: 'Demonio de la Velocidad',
-    description: 'Consigue 30 puntos en menos de 30 segundos',
+    title: 'Speed Demon',
+    description: 'Score 30 points in less than 30 seconds',
     icon: '⚡',
     maxProgress: 1,
     category: 'special',

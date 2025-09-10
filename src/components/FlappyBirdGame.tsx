@@ -301,7 +301,10 @@ const FlappyBirdGame: React.FC = () => {
         const canvas = canvasRef.current;
         if (canvas) {
           const initialStars = createStars(canvas.width, canvas.height);
+          console.log('Creating stars:', initialStars.length);
           setStars(initialStars);
+        } else {
+          console.log('Canvas not available for stars initialization');
         }
         
         // Tell Farcaster the app is ready after images are loaded (if in Farcaster context)
@@ -603,6 +606,7 @@ const FlappyBirdGame: React.FC = () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     // Draw moving stars
+    console.log('Rendering stars:', stars.length);
     stars.forEach(star => {
       ctx.save();
       ctx.globalAlpha = star.opacity;
@@ -804,7 +808,7 @@ const FlappyBirdGame: React.FC = () => {
   if (!imagesLoaded) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900">
-        <div className="text-white text-xl">Cargando juego...</div>
+        <div className="text-white text-xl">Loading game...</div>
       </div>
     );
   }
@@ -860,7 +864,7 @@ const FlappyBirdGame: React.FC = () => {
                   onClick={handleJump}
                   className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
                 >
-                  JUGAR DE NUEVO
+                  PLAY AGAIN
                 </button>
                 <button
                   onClick={() => setShowLeaderboard(!showLeaderboard)}
@@ -872,13 +876,13 @@ const FlappyBirdGame: React.FC = () => {
                   onClick={() => setShowAchievements(!showAchievements)}
                   className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
                 >
-                  {showAchievements ? 'OCULTAR' : 'LOGROS'}
+                  {showAchievements ? 'HIDE' : 'ACHIEVEMENTS'}
                 </button>
                 <button
                   onClick={() => shareScore(gameState.score)}
                   className="px-6 py-3 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
                 >
-                  COMPARTIR
+                  SHARE
                 </button>
               </div>
             </AnimatedText>
@@ -893,7 +897,7 @@ const FlappyBirdGame: React.FC = () => {
                 <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
                   Flappy DOBI
                 </h1>
-                <div className="text-xl mb-8 animate-pulse">Toca para empezar</div>
+                <div className="text-xl mb-8 animate-pulse">Tap to start</div>
               </div>
             </AnimatedText>
             <AnimatedText animation="slideUp" delay={500}>
@@ -901,7 +905,7 @@ const FlappyBirdGame: React.FC = () => {
                 onClick={handleJump}
                 className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
-                JUGAR
+                PLAY
               </button>
             </AnimatedText>
           </div>
@@ -911,7 +915,7 @@ const FlappyBirdGame: React.FC = () => {
         {/* Instructions */}
         {gameState.isPlaying && !gameState.isGameOver && (
           <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-center text-sm opacity-70">
-            Toca para saltar
+            Tap to jump
           </div>
         )}
 

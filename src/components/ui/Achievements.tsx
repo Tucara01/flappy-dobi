@@ -118,7 +118,7 @@ const Achievements: React.FC<AchievementsProps> = ({
         {filteredAchievements.length === 0 ? (
           <AnimatedText animation="fadeIn" delay={600}>
             <div className="text-center text-gray-400 py-8">
-              No hay logros en esta categoría
+              No achievements in this category
             </div>
           </AnimatedText>
         ) : (

@@ -60,7 +60,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-        <span className="ml-2 text-white">Cargando...</span>
+        <span className="ml-2 text-white">Loading...</span>
       </div>
     );
   }
@@ -167,7 +167,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
                     {entry.score}
                   </div>
                   <div className="text-gray-400 text-sm">
-                    puntos
+                    points
                   </div>
                 </div>
               </div>

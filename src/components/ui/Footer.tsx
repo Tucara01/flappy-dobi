@@ -26,7 +26,7 @@ export const Footer: React.FC<FooterProps> = ({ activeTab, setActiveTab, showWal
         }`}
       >
         <span className="text-xl">🎮</span>
-        <span className="text-xs mt-1">Juego</span>
+        <span className="text-xs mt-1">Game</span>
       </button>
       <button
         onClick={() => setActiveTab(Tab.Actions)}
