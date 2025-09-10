@@ -28,7 +28,7 @@ const ParticleEffect: React.FC<ParticleEffectProps> = ({
   count = 20
 }) => {
   const [particles, setParticles] = useState<Particle[]>([]);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (active) {

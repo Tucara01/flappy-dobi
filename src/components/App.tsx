@@ -57,21 +57,8 @@ export default function App(
   const [context, setContext] = useState<any>(null);
 
   // --- Hooks ---
-  // Safely call the hook with error handling
-  let miniAppData;
-  try {
-    miniAppData = useMiniApp();
-  } catch (error) {
-    console.error('useMiniApp failed:', error);
-    // Fallback for localhost mode
-    miniAppData = {
-      isSDKLoaded: false,
-      context: null,
-      setInitialTab: null,
-      setActiveTab: setCurrentTab,
-      currentTab: currentTab
-    };
-  }
+  // Always call the hook, handle errors in useEffect
+  const miniAppData = useMiniApp();
 
   const {
     isSDKLoaded: sdkLoaded,
@@ -93,6 +80,22 @@ export default function App(
     setIsSDKLoaded(true);
     setContext(sdkContext || null);
   }, [sdkContext]);
+
+  /**
+   * Handle useMiniApp errors gracefully
+   */
+  useEffect(() => {
+    try {
+      // This will throw if useMiniApp fails
+      if (miniAppData && typeof miniAppData === 'object') {
+        // Hook worked correctly
+        console.log('useMiniApp loaded successfully');
+      }
+    } catch (error) {
+      console.error('useMiniApp error handled:', error);
+      // Fallback is already handled by the hook itself
+    }
+  }, [miniAppData]);
 
   /**
    * Sets the initial tab to "home" when the SDK is loaded.

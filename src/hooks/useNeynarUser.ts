@@ -57,7 +57,7 @@ export function useNeynarUser(context?: { user?: { fid?: number } }) {
         
         // Set a fallback user to prevent app from breaking
         setUser({
-          fid: context.user.fid,
+          fid: context.user?.fid || 0,
           score: 0
         });
       })
