@@ -51,7 +51,7 @@ export async function sendMiniAppNotification({
       return { state: "error", error: responseBody.error.errors };
     }
 
-    if (responseBody.data.result.rateLimitedTokens.length) {
+    if (responseBody.data.result?.rateLimitedTokens?.length) {
       // Rate limited
       return { state: "rate_limit" };
     }

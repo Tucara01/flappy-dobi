@@ -123,11 +123,19 @@ export function WalletTab() {
   const [evmContractTransactionHash, setEvmContractTransactionHash] = useState<string | null>(null);
   
   // --- Hooks ---
-  const { context } = useMiniApp();
+  let context;
+  try {
+    const miniAppData = useMiniApp();
+    context = miniAppData.context;
+  } catch (err) {
+    // If useMiniApp fails (like in localhost), use fallback
+    context = null;
+  }
+  
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const solanaWallet = useSolanaWallet();
-  const { publicKey: solanaPublicKey } = solanaWallet;
+  const { publicKey: solanaPublicKey } = solanaWallet || {};
 
   // --- Wagmi Hooks ---
   const {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
@@ -54,31 +54,60 @@ export interface AppProps {
 export default function App(
   { title }: AppProps = { title: "DOBI BIRD" }
 ) {
+  // --- State for localhost mode ---
+  const [isSDKLoaded, setIsSDKLoaded] = useState(false);
+  const [currentTab, setCurrentTab] = useState<Tab>(Tab.Home);
+  const [context, setContext] = useState<any>(null);
+
   // --- Hooks ---
+  let miniAppData;
+  try {
+    miniAppData = useMiniApp();
+  } catch (err) {
+    // If useMiniApp fails (like in localhost), use fallback
+    miniAppData = {
+      isSDKLoaded: false,
+      context: null,
+      setInitialTab: null,
+      setActiveTab: setCurrentTab,
+      currentTab: currentTab
+    };
+  }
+
   const {
-    isSDKLoaded,
-    context,
+    isSDKLoaded: sdkLoaded,
+    context: sdkContext,
     setInitialTab,
-    setActiveTab,
-    currentTab,
-  } = useMiniApp();
+    setActiveTab: sdkSetActiveTab,
+    currentTab: sdkCurrentTab,
+  } = miniAppData;
 
   // --- Neynar user hook ---
-  const { user: neynarUser } = useNeynarUser(context || undefined);
+  const { user: neynarUser } = useNeynarUser(sdkContext || undefined);
 
   // --- Effects ---
   /**
+   * Initialize app state for localhost mode
+   */
+  useEffect(() => {
+    // Always initialize as loaded for localhost mode
+    setIsSDKLoaded(true);
+    setContext(sdkContext || null);
+  }, [sdkContext]);
+
+  /**
    * Sets the initial tab to "home" when the SDK is loaded.
-   * 
-   * This effect ensures that users start on the home tab when they first
-   * load the mini app. It only runs when the SDK is fully loaded to
-   * prevent errors during initialization.
    */
   useEffect(() => {
     if (isSDKLoaded) {
-      setInitialTab(Tab.Home);
+      // Always use local state for tab management in localhost mode
+      setCurrentTab(Tab.Home);
     }
-  }, [isSDKLoaded, setInitialTab]);
+  }, [isSDKLoaded]);
+
+  // Always use local state for tab management to avoid network issues
+  const activeTab = currentTab;
+  const setActiveTab = setCurrentTab;
 
   // --- Early Returns ---
   if (!isSDKLoaded) {
@@ -96,10 +125,10 @@ export default function App(
   return (
     <div
       style={{
-        paddingTop: context?.client.safeAreaInsets?.top ?? 0,
-        paddingBottom: context?.client.safeAreaInsets?.bottom ?? 0,
-        paddingLeft: context?.client.safeAreaInsets?.left ?? 0,
-        paddingRight: context?.client.safeAreaInsets?.right ?? 0,
+        paddingTop: context?.client?.safeAreaInsets?.top ?? 0,
+        paddingBottom: context?.client?.safeAreaInsets?.bottom ?? 0,
+        paddingLeft: context?.client?.safeAreaInsets?.left ?? 0,
+        paddingRight: context?.client?.safeAreaInsets?.right ?? 0,
       }}
     >
       {/* Header should be full width */}
@@ -111,14 +140,14 @@ export default function App(
         <h1 className="text-2xl font-bold text-center mb-4">{title}</h1>
 
         {/* Tab content rendering */}
-        {currentTab === Tab.Home && <HomeTab />}
-        {currentTab === Tab.Game && <FlappyBirdGame />}
-        {currentTab === Tab.Actions && <ActionsTab />}
-        {currentTab === Tab.Context && <ContextTab />}
-        {currentTab === Tab.Wallet && <WalletTab />}
+        {activeTab === Tab.Home && <HomeTab />}
+        {activeTab === Tab.Game && <FlappyBirdGame />}
+        {activeTab === Tab.Actions && <ActionsTab />}
+        {activeTab === Tab.Context && <ContextTab />}
+        {activeTab === Tab.Wallet && <WalletTab />}
 
         {/* Footer with navigation */}
-        <Footer activeTab={currentTab as Tab} setActiveTab={setActiveTab} showWallet={USE_WALLET} />
+        <Footer activeTab={activeTab as Tab} setActiveTab={setActiveTab} showWallet={USE_WALLET} />
       </div>
     </div>
   );

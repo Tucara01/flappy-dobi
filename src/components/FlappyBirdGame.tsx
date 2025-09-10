@@ -3,6 +3,13 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import NumberDisplay from './ui/NumberDisplay';
+import AnimatedText from './ui/AnimatedText';
+import ParticleEffect from './ui/ParticleEffect';
+import Leaderboard from './ui/Leaderboard';
+import Achievements from './ui/Achievements';
+import { useSound } from '../hooks/useSound';
+import { useLeaderboard } from '../hooks/useLeaderboard';
+import { useAchievements } from '../hooks/useAchievements';
 
 interface GameState {
   isPlaying: boolean;
@@ -25,10 +32,45 @@ interface Obstacle {
   passed: boolean;
 }
 
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+  size: number;
+}
+
+interface PowerUp {
+  x: number;
+  y: number;
+  type: 'magnet' | 'shield' | 'multiplier';
+  collected: boolean;
+  animation: number;
+}
+
 const FlappyBirdGame: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameLoopRef = useRef<number>();
+  const gameLoopRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
+  
+  // Sound effects
+  const { playJumpSound, playScoreSound, playCollisionSound, playPowerUpSound, playGameOverSound } = useSound();
+  
+  // Leaderboard
+  const { leaderboard, isLoading, error, submitScore, loadLeaderboard, shareScore } = useLeaderboard();
+  
+  // Achievements
+  const { 
+    achievements, 
+    recentlyUnlocked, 
+    checkScoreAchievements, 
+    checkPowerUpAchievements, 
+    checkSurvivalAchievements, 
+    checkSpecialAchievements 
+  } = useAchievements();
   
   // Game state
   const [gameState, setGameState] = useState<GameState>({
@@ -40,52 +82,185 @@ const FlappyBirdGame: React.FC = () => {
 
   // Game objects
   const [bird, setBird] = useState<Bird>({
-    x: 100,
-    y: 250,
+    x: 200, // 2x
+    y: 300, // 2x
     velocity: 0,
     rotation: 0
   });
 
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [backgroundOffset, setBackgroundOffset] = useState(0);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const [powerUps, setPowerUps] = useState<PowerUp[]>([]);
+  const [activePowerUps, setActivePowerUps] = useState<{[key: string]: number}>({});
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [lastScore, setLastScore] = useState(0);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [gameStats, setGameStats] = useState({
+    powerUpsUsed: 0,
+    obstaclesPassed: 0,
+    gameStartTime: 0,
+    powerUpCounts: { magnet: 0, shield: 0, multiplier: 0 }
+  });
+  const [obstaclesEnabled, setObstaclesEnabled] = useState(false);
 
-  // Game constants
-  const GRAVITY = 0.5;
-  const JUMP_FORCE = -8;
-  const OBSTACLE_SPEED = 2;
-  const OBSTACLE_GAP = 200;
-  const OBSTACLE_WIDTH = 60;
-  const BIRD_SIZE = 30;
+  // Game constants (2x resolution)
+  const GRAVITY = 0.15;
+  const JUMP_FORCE = -5;
+  const OBSTACLE_SPEED = 4; // 2x
+  const OBSTACLE_GAP = 700; // 2x
+  const OBSTACLE_WIDTH = 120; // 2x
+  const BIRD_SIZE = 60; // 2x - Hitbox size (for collisions)
+  const BIRD_DISPLAY_SIZE = 100; // 2x - Visual size (for rendering)
 
   // Load images
   const [images, setImages] = useState<{[key: string]: HTMLImageElement}>({});
   const [imagesLoaded, setImagesLoaded] = useState(false);
+
+  // Particle system functions
+  const createParticles = useCallback((x: number, y: number, count: number, color: string) => {
+    const newParticles: Particle[] = [];
+    for (let i = 0; i < count; i++) {
+      newParticles.push({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + (Math.random() - 0.5) * 20,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+        life: 1,
+        maxLife: 1,
+        color,
+        size: Math.random() * 3 + 1
+      });
+    }
+    setParticles(prev => [...prev, ...newParticles]);
+  }, []);
+
+  const updateParticles = useCallback(() => {
+    setParticles(prev => 
+      prev.map(particle => ({
+        ...particle,
+        x: particle.x + particle.vx,
+        y: particle.y + particle.vy,
+        vy: particle.vy + 0.1, // gravity
+        life: particle.life - 0.02
+      })).filter(particle => particle.life > 0)
+    );
+  }, []);
+
+  // Power-up functions
+  const createPowerUp = useCallback((x: number, y: number) => {
+    // Only shield power-up available
+    setPowerUps(prev => [...prev, {
+      x,
+      y,
+      type: 'shield',
+      collected: false,
+      animation: 0
+    }]);
+  }, []);
+
+  const updatePowerUps = useCallback(() => {
+    setPowerUps(prev => 
+      prev.map(powerUp => ({
+        ...powerUp,
+        x: powerUp.x - OBSTACLE_SPEED,
+        animation: powerUp.animation + 0.1
+      })).filter(powerUp => powerUp.x > -50)
+    );
+  }, []);
+
+  const checkPowerUpCollision = useCallback(() => {
+    powerUps.forEach(powerUp => {
+      if (!powerUp.collected && 
+          Math.abs(bird.x - powerUp.x) < 30 && 
+          Math.abs(bird.y - powerUp.y) < 30) {
+        
+        setPowerUps(prev => prev.map(p => 
+          p === powerUp ? { ...p, collected: true } : p
+        ));
+
+        // Apply shield power-up effect
+        playPowerUpSound();
+        
+        // Update game stats
+        setGameStats(prev => ({
+          ...prev,
+          powerUpsUsed: prev.powerUpsUsed + 1,
+          powerUpCounts: {
+            ...prev.powerUpCounts,
+            shield: prev.powerUpCounts.shield + 1
+          }
+        }));
+        
+        // Check power-up achievements
+        checkPowerUpAchievements('shield', gameStats.powerUpsUsed + 1);
+        
+        // Activate shield
+        setActivePowerUps(prev => ({ ...prev, shield: 600 }));
+        createParticles(powerUp.x, powerUp.y, 15, '#0088ff');
+      }
+    });
+  }, [powerUps, bird.x, bird.y, createParticles, playPowerUpSound]);
 
   useEffect(() => {
     const loadImages = async () => {
       const imageNames = ['bird', 'obstacle', 'background', 'sky'];
       const loadedImages: {[key: string]: HTMLImageElement} = {};
 
-      for (const name of imageNames) {
-        const img = new Image();
-        img.src = `/game/sprites/${name === 'bird' ? 'personaje' : name === 'obstacle' ? 'tubo v3' : name === 'background' ? 'background' : 'sky'}.png`;
-        
-        await new Promise((resolve) => {
-          img.onload = resolve;
-        });
-        
-        loadedImages[name] = img;
-      }
+      try {
+        for (const name of imageNames) {
+          const img = new Image();
+          const imagePath = `/game/sprites/${name === 'bird' ? 'personaje' : name === 'obstacle' ? 'tubo v3' : name === 'background' ? 'background' : 'sky'}.png`;
+          img.src = imagePath;
+          
+          console.log(`Loading image: ${imagePath}`);
+          
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              console.warn(`Image load timeout: ${imagePath}`);
+              resolve(null); // Continue even if image fails to load
+            }, 5000); // 5 second timeout
+            
+            img.onload = () => {
+              clearTimeout(timeout);
+              resolve(null);
+            };
+            
+            img.onerror = () => {
+              clearTimeout(timeout);
+              console.warn(`Failed to load image: ${imagePath}`);
+              resolve(null); // Continue even if image fails to load
+            };
+          });
+          
+          if (img.complete && img.naturalHeight !== 0) {
+            loadedImages[name] = img;
+          } else {
+            console.warn(`Image not properly loaded: ${imagePath}`);
+          }
+        }
 
-      setImages(loadedImages);
-      setImagesLoaded(true);
-      
-      // Tell Farcaster the app is ready after images are loaded
-      await sdk.actions.ready();
+        setImages(loadedImages);
+        setImagesLoaded(true);
+        
+        // Tell Farcaster the app is ready after images are loaded (if in Farcaster context)
+        try {
+          await sdk.actions.ready();
+        } catch (err) {
+          // If not in Farcaster context, continue without error
+          console.log('Running in localhost mode - Farcaster SDK not available');
+        }
+      } catch (error) {
+        console.error('Error loading images:', error);
+        // Set images loaded anyway to prevent infinite loading
+        setImagesLoaded(true);
+      }
     };
 
     loadImages();
-  }, []);
+    loadLeaderboard();
+  }, [loadLeaderboard]);
 
   // Game loop
   const gameLoop = useCallback((currentTime: number) => {
@@ -94,15 +269,43 @@ const FlappyBirdGame: React.FC = () => {
     const deltaTime = currentTime - lastTimeRef.current;
     lastTimeRef.current = currentTime;
 
+    // Enable obstacles after 2 seconds
+    if (!obstaclesEnabled && gameStats.gameStartTime > 0 && Date.now() - gameStats.gameStartTime > 2000) {
+      setObstaclesEnabled(true);
+    }
+
     // Update bird physics
     setBird(prevBird => {
       const newVelocity = prevBird.velocity + GRAVITY;
-      const newY = prevBird.y + newVelocity;
+      let newY = prevBird.y + newVelocity;
       const newRotation = Math.min(Math.max(newVelocity * 3, -30), 30);
 
+      // Check ceiling collision
+      if (newY < 200) { // 2x
+        newY = 200;
+        return { ...prevBird, y: newY, velocity: 0, rotation: 0 };
+      }
+
       // Check ground collision
-      if (newY > 400 - BIRD_SIZE) {
-        setGameState(prev => ({ ...prev, isGameOver: true }));
+      if (newY > 1100 - BIRD_SIZE) { // 2x
+        setGameState(prev => {
+          const newState = { ...prev, isGameOver: true };
+          // Submit score when game ends
+          if (prev.score > 0) {
+            submitScore(prev.score);
+          }
+          return newState;
+        });
+        
+        // Check special achievements
+        checkSpecialAchievements({
+          score: gameState.score,
+          powerUpsUsed: gameStats.powerUpsUsed,
+          gameTime: Date.now() - gameStats.gameStartTime,
+          obstaclesPassed: gameStats.obstaclesPassed
+        });
+        createParticles(prevBird.x, prevBird.y, 20, '#ff4444');
+        playGameOverSound();
         return { ...prevBird, y: 400 - BIRD_SIZE, velocity: 0 };
       }
 
@@ -121,44 +324,111 @@ const FlappyBirdGame: React.FC = () => {
         x: obstacle.x - OBSTACLE_SPEED
       })).filter(obstacle => obstacle.x > -OBSTACLE_WIDTH);
 
-      // Add new obstacles
-      if (newObstacles.length === 0 || newObstacles[newObstacles.length - 1].x < 300) {
-        const topHeight = Math.random() * 200 + 100;
+      // Add new obstacles only after 2 seconds
+      if (obstaclesEnabled && (newObstacles.length === 0 || newObstacles[newObstacles.length - 1].x < 400)) { // 2x
+        const topHeight = Math.random() * 400 + 200; // 2x
         newObstacles.push({
-          x: 400,
+          x: 800, // 2x
           topHeight,
           bottomY: topHeight + OBSTACLE_GAP,
           passed: false
         });
+
+        // Occasionally add power-ups
+        if (Math.random() < 0.3) {
+          createPowerUp(800, topHeight + OBSTACLE_GAP / 2); // 2x
+        }
       }
 
       // Check scoring
       newObstacles.forEach(obstacle => {
         if (!obstacle.passed && obstacle.x + OBSTACLE_WIDTH < bird.x) {
           obstacle.passed = true;
-          setGameState(prev => ({ ...prev, score: prev.score + 1 }));
+          const points = 1; // Fixed points, no multiplier
+          setGameState(prev => {
+            const newScore = prev.score + points;
+            if (newScore > lastScore) {
+              setLastScore(newScore);
+              setShowCelebration(true);
+              setTimeout(() => setShowCelebration(false), 1000);
+            }
+            return { ...prev, score: newScore };
+          });
+          
+          // Update game stats
+          setGameStats(prev => ({
+            ...prev,
+            obstaclesPassed: prev.obstaclesPassed + 1
+          }));
+          
+          // Check achievements
+          checkScoreAchievements(gameState.score + points);
+          checkSurvivalAchievements(gameStats.obstaclesPassed + 1);
+          
+          createParticles(obstacle.x + OBSTACLE_WIDTH, bird.y, 8, '#00ff88');
+          playScoreSound();
         }
       });
 
       return newObstacles;
     });
 
-    // Update background
-    setBackgroundOffset(prev => (prev + 1) % 400);
+    // Update particles
+    updateParticles();
 
-    // Check collisions
-    obstacles.forEach(obstacle => {
-      if (
-        bird.x + BIRD_SIZE > obstacle.x &&
-        bird.x < obstacle.x + OBSTACLE_WIDTH &&
-        (bird.y < obstacle.topHeight || bird.y + BIRD_SIZE > obstacle.bottomY)
-      ) {
-        setGameState(prev => ({ ...prev, isGameOver: true }));
-      }
+    // Update power-ups
+    updatePowerUps();
+
+    // Check power-up collisions
+    checkPowerUpCollision();
+
+    // Update active power-ups
+    setActivePowerUps(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(key => {
+        updated[key] = Math.max(0, updated[key] - 1);
+        if (updated[key] === 0) {
+          delete updated[key];
+        }
+      });
+      return updated;
     });
 
+    // Update background
+    setBackgroundOffset(prev => (prev + 2) % 800); // 2x
+
+    // Check collisions (with shield protection)
+    if (!activePowerUps.shield) {
+      obstacles.forEach(obstacle => {
+        if (
+          bird.x + BIRD_SIZE > obstacle.x &&
+          bird.x < obstacle.x + OBSTACLE_WIDTH &&
+          (bird.y < obstacle.topHeight || bird.y + BIRD_SIZE > obstacle.bottomY)
+        ) {
+          setGameState(prev => {
+            const newState = { ...prev, isGameOver: true };
+            // Submit score when game ends
+            if (prev.score > 0) {
+              submitScore(prev.score);
+            }
+            return newState;
+          });
+          
+          // Check special achievements
+          checkSpecialAchievements({
+            score: gameState.score,
+            powerUpsUsed: gameStats.powerUpsUsed,
+            gameTime: Date.now() - gameStats.gameStartTime,
+            obstaclesPassed: gameStats.obstaclesPassed
+          });
+          createParticles(bird.x, bird.y, 25, '#ff4444');
+          playCollisionSound();
+        }
+      });
+    }
+
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles]);
+  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles, activePowerUps.shield, obstaclesEnabled, gameStats.gameStartTime, updateParticles, updatePowerUps, checkPowerUpCollision, createParticles, createPowerUp, playGameOverSound, playScoreSound, playCollisionSound, submitScore]);
 
   // Start game loop
   useEffect(() => {
@@ -178,11 +448,25 @@ const FlappyBirdGame: React.FC = () => {
   const handleJump = useCallback(() => {
     if (!gameState.isPlaying) {
       setGameState(prev => ({ ...prev, isPlaying: true }));
-      setBird(prev => ({ ...prev, y: 250, velocity: 0, rotation: 0 }));
+      setBird(prev => ({ ...prev, y: 300, velocity: 0, rotation: 0 })); // 2x
       setObstacles([]);
       setGameState(prev => ({ ...prev, score: 0 }));
+      setParticles([]);
+      setPowerUps([]);
+      setActivePowerUps({});
+      setShowCelebration(false);
+      setLastScore(0);
+      setObstaclesEnabled(false);
+      setGameStats({
+        powerUpsUsed: 0,
+        obstaclesPassed: 0,
+        gameStartTime: Date.now(),
+        powerUpCounts: { magnet: 0, shield: 0, multiplier: 0 }
+      });
     } else if (!gameState.isGameOver) {
       setBird(prev => ({ ...prev, velocity: JUMP_FORCE }));
+      createParticles(bird.x, bird.y, 5, '#ffffff');
+      playJumpSound();
     } else {
       // Restart game
       setGameState(prev => ({ 
@@ -191,10 +475,16 @@ const FlappyBirdGame: React.FC = () => {
         isGameOver: false, 
         score: 0 
       }));
-      setBird({ x: 100, y: 250, velocity: 0, rotation: 0 });
+      setBird({ x: 200, y: 300, velocity: 0, rotation: 0 }); // 2x
       setObstacles([]);
+      setParticles([]);
+      setPowerUps([]);
+      setActivePowerUps({});
+      setShowCelebration(false);
+      setLastScore(0);
+      setObstaclesEnabled(false);
     }
-  }, [gameState.isPlaying, gameState.isGameOver]);
+  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, createParticles, playJumpSound]);
 
   // Handle keyboard
   useEffect(() => {
@@ -222,17 +512,39 @@ const FlappyBirdGame: React.FC = () => {
 
     // Draw sky background
     if (images.sky) {
+      // Enable image smoothing for better quality
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
       ctx.drawImage(images.sky, 0, 0, canvas.width, canvas.height);
+    } else {
+      // Fallback: solid color background
+      ctx.fillStyle = '#87CEEB';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
+
+    // Invisible ceiling - no visual rendering, only collision detection
 
     // Draw scrolling background
     if (images.background) {
+      // Enable image smoothing for better quality
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
       ctx.drawImage(images.background, -backgroundOffset, 0, canvas.width, canvas.height);
       ctx.drawImage(images.background, canvas.width - backgroundOffset, 0, canvas.width, canvas.height);
+    } else {
+      // Fallback: simple ground
+      ctx.fillStyle = '#90EE90';
+      ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
     }
 
     // Draw obstacles
     if (images.obstacle) {
+      // Enable image smoothing for better quality
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
       obstacles.forEach(obstacle => {
         // Top obstacle
         ctx.drawImage(
@@ -245,20 +557,135 @@ const FlappyBirdGame: React.FC = () => {
           obstacle.x, obstacle.bottomY, OBSTACLE_WIDTH, canvas.height - obstacle.bottomY
         );
       });
+    } else {
+      // Fallback: simple rectangles for obstacles
+      ctx.fillStyle = '#228B22';
+      obstacles.forEach(obstacle => {
+        // Top obstacle
+        ctx.fillRect(obstacle.x, 0, OBSTACLE_WIDTH, obstacle.topHeight);
+        // Bottom obstacle
+        ctx.fillRect(obstacle.x, obstacle.bottomY, OBSTACLE_WIDTH, canvas.height - obstacle.bottomY);
+      });
     }
 
-    // Draw bird
+    // Draw power-ups
+    powerUps.forEach(powerUp => {
+      if (!powerUp.collected) {
+        const pulse = Math.sin(powerUp.animation) * 0.2 + 0.8;
+        const size = 20 * pulse;
+        
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        
+        // Draw power-up based on type
+        switch (powerUp.type) {
+          case 'magnet':
+            ctx.fillStyle = '#00ff88';
+            ctx.beginPath();
+            ctx.arc(powerUp.x, powerUp.y, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('M', powerUp.x, powerUp.y + 4);
+            break;
+          case 'shield':
+            ctx.fillStyle = '#0088ff';
+            ctx.beginPath();
+            ctx.arc(powerUp.x, powerUp.y, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('S', powerUp.x, powerUp.y + 4);
+            break;
+          case 'multiplier':
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath();
+            ctx.arc(powerUp.x, powerUp.y, size/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('2x', powerUp.x, powerUp.y + 4);
+            break;
+        }
+        
+        ctx.restore();
+      }
+    });
+
+    // Draw particles
+    particles.forEach(particle => {
+      ctx.save();
+      ctx.globalAlpha = particle.life;
+      ctx.fillStyle = particle.color;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Draw bird with shield effect
     if (images.bird) {
       ctx.save();
+      
+      // Shield effect
+      if (activePowerUps.shield) {
+        ctx.strokeStyle = '#0088ff';
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.arc(bird.x + BIRD_SIZE/2, bird.y + BIRD_SIZE/2, BIRD_SIZE/2 + 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      
       ctx.translate(bird.x + BIRD_SIZE/2, bird.y + BIRD_SIZE/2);
       ctx.rotate((bird.rotation * Math.PI) / 180);
+      
+      // Enable image smoothing for better quality
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
       ctx.drawImage(
         images.bird,
-        -BIRD_SIZE/2, -BIRD_SIZE/2, BIRD_SIZE, BIRD_SIZE
+        -BIRD_DISPLAY_SIZE/2, -BIRD_DISPLAY_SIZE/2, BIRD_DISPLAY_SIZE, BIRD_DISPLAY_SIZE
       );
       ctx.restore();
+    } else {
+      // Fallback: simple circle for bird
+      ctx.save();
+      
+      // Shield effect
+      if (activePowerUps.shield) {
+        ctx.strokeStyle = '#0088ff';
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.arc(bird.x + BIRD_SIZE/2, bird.y + BIRD_SIZE/2, BIRD_SIZE/2 + 10, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      
+      ctx.translate(bird.x + BIRD_SIZE/2, bird.y + BIRD_SIZE/2);
+      ctx.rotate((bird.rotation * Math.PI) / 180);
+      
+      // Draw bird as a yellow circle
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath();
+      ctx.arc(0, 0, BIRD_DISPLAY_SIZE/2, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Draw eye
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(8, -8, 5, 0, Math.PI * 2);
+      ctx.fill();
+      
+      ctx.restore();
     }
-  }, [images, backgroundOffset, obstacles, bird, imagesLoaded]);
+  }, [images, backgroundOffset, obstacles, bird, imagesLoaded, powerUps, particles, activePowerUps]);
 
   // Render on every frame
   useEffect(() => {
@@ -278,8 +705,8 @@ const FlappyBirdGame: React.FC = () => {
       {/* Game Canvas */}
       <canvas
         ref={canvasRef}
-        width={400}
-        height={600}
+        width={800}
+        height={1200}
         className="w-full h-full object-cover"
         onClick={handleJump}
       />
@@ -288,13 +715,15 @@ const FlappyBirdGame: React.FC = () => {
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
         {/* Score */}
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
-          <NumberDisplay
-            value={gameState.score}
-            digits={3}
-            size={50}
-            color="#ffffff"
-            glowColor="#00ff88"
-          />
+          <AnimatedText animation="glow" delay={0}>
+            <NumberDisplay
+              value={gameState.score}
+              digits={3}
+              size={50}
+              color="#ffffff"
+              glowColor="#00ff88"
+            />
+          </AnimatedText>
         </div>
 
         {/* High Score */}
@@ -316,35 +745,75 @@ const FlappyBirdGame: React.FC = () => {
         {/* Game Over Screen */}
         {gameState.isGameOver && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 pointer-events-auto">
-            <div className="text-center text-white mb-8">
-              <h2 className="text-4xl font-bold mb-4">GAME OVER</h2>
-              <div className="text-2xl mb-2">Score: {gameState.score}</div>
-              {gameState.score > gameState.highScore && (
-                <div className="text-yellow-400 text-lg">¡Nuevo récord!</div>
-              )}
-            </div>
-            <button
-              onClick={handleJump}
-              className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors"
-            >
-              JUGAR DE NUEVO
-            </button>
+            <AnimatedText animation="bounce" delay={200}>
+              <div className="text-center text-white mb-8">
+                <h2 className="text-4xl font-bold mb-4">GAME OVER</h2>
+                <div className="text-2xl mb-2">Score: {gameState.score}</div>
+                {gameState.score > gameState.highScore && (
+                  <div className="text-yellow-400 text-lg animate-pulse">¡Nuevo récord!</div>
+                )}
+              </div>
+            </AnimatedText>
+            <AnimatedText animation="slideUp" delay={600}>
+              <div className="flex flex-wrap gap-4 justify-center">
+                <button
+                  onClick={handleJump}
+                  className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
+                >
+                  JUGAR DE NUEVO
+                </button>
+                <button
+                  onClick={() => setShowLeaderboard(!showLeaderboard)}
+                  className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
+                >
+                  {showLeaderboard ? 'OCULTAR' : 'LEADERBOARD'}
+                </button>
+                <button
+                  onClick={() => setShowAchievements(!showAchievements)}
+                  className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
+                >
+                  {showAchievements ? 'OCULTAR' : 'LOGROS'}
+                </button>
+                <button
+                  onClick={() => shareScore(gameState.score)}
+                  className="px-6 py-3 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
+                >
+                  COMPARTIR
+                </button>
+              </div>
+            </AnimatedText>
           </div>
         )}
 
         {/* Start Screen */}
         {!gameState.isPlaying && !gameState.isGameOver && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 pointer-events-auto">
-            <div className="text-center text-white mb-8">
-              <h1 className="text-5xl font-bold mb-4">DOBI BIRD</h1>
-              <div className="text-xl mb-8">Toca para empezar</div>
+            <AnimatedText animation="bounce" delay={0}>
+              <div className="text-center text-white mb-8">
+                <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+                  DOBI BIRD
+                </h1>
+                <div className="text-xl mb-8 animate-pulse">Toca para empezar</div>
+              </div>
+            </AnimatedText>
+            <AnimatedText animation="slideUp" delay={500}>
+              <button
+                onClick={handleJump}
+                className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105 shadow-lg hover:shadow-xl"
+              >
+                JUGAR
+              </button>
+            </AnimatedText>
+          </div>
+        )}
+
+        {/* Shield indicator */}
+        {gameState.isPlaying && !gameState.isGameOver && activePowerUps.shield && (
+          <div className="absolute top-20 left-4 flex flex-col gap-2">
+            <div className="bg-blue-500 bg-opacity-80 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
+              <div className="w-2 h-2 bg-white rounded-full"></div>
+              Escudo ({Math.ceil(activePowerUps.shield / 60)}s)
             </div>
-            <button
-              onClick={handleJump}
-              className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors"
-            >
-              JUGAR
-            </button>
           </div>
         )}
 
@@ -354,6 +823,54 @@ const FlappyBirdGame: React.FC = () => {
             Toca para saltar
           </div>
         )}
+
+        {/* Leaderboard Modal */}
+        {showLeaderboard && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 pointer-events-auto z-50">
+            <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-white">Leaderboard</h3>
+                <button
+                  onClick={() => setShowLeaderboard(false)}
+                  className="text-gray-400 hover:text-white text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              <Leaderboard
+                entries={leaderboard.entries}
+                userRank={leaderboard.userRank}
+                userBestScore={leaderboard.userBestScore}
+                isLoading={isLoading}
+                error={error}
+                onShare={shareScore}
+                currentScore={gameState.score}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Achievements Modal */}
+        {showAchievements && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 pointer-events-auto z-50">
+            <div className="bg-gray-900 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+              <Achievements
+                achievements={achievements}
+                recentlyUnlocked={recentlyUnlocked}
+                onClose={() => setShowAchievements(false)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Particle Effects */}
+        <ParticleEffect 
+          active={showCelebration} 
+          type="celebration" 
+          x={200} 
+          y={100} 
+          count={30} 
+        />
       </div>
     </div>
   );
