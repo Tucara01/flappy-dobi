@@ -62,9 +62,10 @@ const NumberDisplay: React.FC<NumberDisplayProps> = ({
         y1={coords.y1}
         x2={coords.x2}
         y2={coords.y2}
-        stroke={color}
+        stroke="url(#segmentGradient)"
         strokeWidth={segmentWidth}
         strokeLinecap="round"
+        filter="url(#glow)"
       />
     );
   };
@@ -89,8 +90,25 @@ const NumberDisplay: React.FC<NumberDisplayProps> = ({
         width={digits * (digitWidth + spacing) - spacing}
         height={digitHeight}
         viewBox={`0 0 ${digits * (digitWidth + spacing) - spacing} ${digitHeight}`}
-        className="drop-shadow-lg"
+        className="drop-shadow-[0_0_20px_rgba(0,255,255,0.8)]"
+        style={{
+          filter: 'drop-shadow(0 0 10px rgba(0,255,255,0.6)) drop-shadow(0 0 20px rgba(0,255,255,0.4))'
+        }}
       >
+        <defs>
+          <linearGradient id="segmentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="50%" stopColor="#00ffff" />
+            <stop offset="100%" stopColor="#0088ff" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge> 
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
         {valueStr.split('').map((digit, index) => createDigit(digit, index))}
       </svg>
     </div>

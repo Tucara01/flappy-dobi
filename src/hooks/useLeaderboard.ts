@@ -38,8 +38,8 @@ export const useLeaderboard = () => {
       // Create score entry
       const scoreEntry: LeaderboardEntry = {
         fid: context?.user?.fid || Math.floor(Math.random() * 10000),
-        username: context?.user?.username || 'Jugador Local',
-        displayName: context?.user?.displayName || context?.user?.username || 'Jugador Local',
+        username: context?.user?.username || 'Local Player',
+        displayName: context?.user?.displayName || context?.user?.username || 'Local Player',
         score,
         timestamp: Date.now(),
         avatar: context?.user?.pfpUrl || undefined
@@ -65,7 +65,7 @@ export const useLeaderboard = () => {
 
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al enviar puntuación');
+      setError(err instanceof Error ? err.message : 'Error sending score');
       return false;
     } finally {
       setIsLoading(false);
@@ -94,7 +94,7 @@ export const useLeaderboard = () => {
         userBestScore: context?.user ? Math.max(...existingScores.filter((entry: LeaderboardEntry) => entry.fid === context.user.fid).map((e: LeaderboardEntry) => e.score)) : undefined
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar leaderboard');
+      setError(err instanceof Error ? err.message : 'Error loading leaderboard');
     } finally {
       setIsLoading(false);
     }

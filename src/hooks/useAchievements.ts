@@ -17,8 +17,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   // Score achievements
   {
     id: 'first_score',
-    title: 'Primer Punto',
-    description: 'Consigue tu primer punto',
+    title: 'First Point',
+    description: 'Get your first point',
     icon: '🎯',
     maxProgress: 1,
     category: 'score',
@@ -64,8 +64,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   // Power-up achievements
   {
     id: 'first_powerup',
-    title: 'Primer Power-up',
-    description: 'Recoge tu primer power-up',
+    title: 'First Power-up',
+    description: 'Collect your first power-up',
     icon: '⚡',
     maxProgress: 1,
     category: 'powerups',
@@ -73,8 +73,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'powerup_magnet',
-    title: 'Atracción Magnética',
-    description: 'Recoge 5 power-ups de imán',
+    title: 'Magnetic Attraction',
+    description: 'Collect 5 magnet power-ups',
     icon: '🧲',
     maxProgress: 5,
     category: 'powerups',
@@ -82,8 +82,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'powerup_shield',
-    title: 'Escudo Protector',
-    description: 'Recoge 5 power-ups de escudo',
+    title: 'Protective Shield',
+    description: 'Collect 5 shield power-ups',
     icon: '🛡️',
     maxProgress: 5,
     category: 'powerups',
@@ -91,8 +91,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'powerup_multiplier',
-    title: 'Multiplicador',
-    description: 'Recoge 5 power-ups de multiplicador',
+    title: 'Multiplier',
+    description: 'Collect 5 multiplier power-ups',
     icon: '✨',
     maxProgress: 5,
     category: 'powerups',
@@ -102,8 +102,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   // Survival achievements
   {
     id: 'survive_10_obstacles',
-    title: 'Superviviente',
-    description: 'Esquiva 10 obstáculos',
+    title: 'Survivor',
+    description: 'Dodge 10 obstacles',
     icon: '🏃',
     maxProgress: 10,
     category: 'survival',
@@ -112,7 +112,7 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   {
     id: 'survive_50_obstacles',
     title: 'Ninja',
-    description: 'Esquiva 50 obstáculos',
+    description: 'Dodge 50 obstacles',
     icon: '🥷',
     maxProgress: 50,
     category: 'survival',
@@ -120,8 +120,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'survive_100_obstacles',
-    title: 'Fantasma',
-    description: 'Esquiva 100 obstáculos',
+    title: 'Ghost',
+    description: 'Dodge 100 obstacles',
     icon: '👻',
     maxProgress: 100,
     category: 'survival',
@@ -140,8 +140,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'unlocked' | 'unlockedAt' | 'progress'>[] 
   },
   {
     id: 'combo_master',
-    title: 'Maestro del Combo',
-    description: 'Consigue 5 power-ups en una sola partida',
+    title: 'Combo Master',
+    description: 'Get 5 power-ups in a single game',
     icon: '🔥',
     maxProgress: 1,
     category: 'special',

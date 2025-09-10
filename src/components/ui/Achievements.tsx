@@ -44,10 +44,10 @@ const Achievements: React.FC<AchievementsProps> = ({
   };
 
   const categories = [
-    { id: 'score', name: 'Puntuación', icon: '🎯' },
+    { id: 'score', name: 'Score', icon: '🎯' },
     { id: 'powerups', name: 'Power-ups', icon: '⚡' },
-    { id: 'survival', name: 'Supervivencia', icon: '🏃' },
-    { id: 'special', name: 'Especiales', icon: '💎' }
+    { id: 'survival', name: 'Survival', icon: '🏃' },
+    { id: 'special', name: 'Special', icon: '💎' }
   ] as const;
 
   const [selectedCategory, setSelectedCategory] = React.useState<Achievement['category']>('score');
@@ -61,7 +61,7 @@ const Achievements: React.FC<AchievementsProps> = ({
       <AnimatedText animation="fadeIn" delay={0}>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-white">
-            🏆 Logros ({unlockedCount}/{totalCount})
+            🏆 Achievements ({unlockedCount}/{totalCount})
           </h2>
           <button
             onClick={onClose}
@@ -77,7 +77,7 @@ const Achievements: React.FC<AchievementsProps> = ({
         <AnimatedText animation="bounce" delay={200}>
           <div className="mb-6 p-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-lg border border-yellow-500/30">
             <h3 className="text-lg font-semibold text-yellow-400 mb-2">
-              ¡Logros Desbloqueados!
+              Achievements Unlocked!
             </h3>
             <div className="space-y-2">
               {recentlyUnlocked.map(achievement => (
@@ -147,7 +147,7 @@ const Achievements: React.FC<AchievementsProps> = ({
                       </div>
                       {achievement.unlocked && achievement.unlockedAt && (
                         <div className="text-xs text-gray-400 mt-1">
-                          Desbloqueado: {new Date(achievement.unlockedAt).toLocaleDateString()}
+                          Unlocked: {new Date(achievement.unlockedAt).toLocaleDateString()}
                         </div>
                       )}
                     </div>

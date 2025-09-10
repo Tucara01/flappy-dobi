@@ -48,11 +48,11 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
     
     if (diffInHours < 1) {
-      return 'Hace un momento';
+      return 'Just now';
     } else if (diffInHours < 24) {
-      return `Hace ${Math.floor(diffInHours)}h`;
+      return `${Math.floor(diffInHours)}h ago`;
     } else {
-      return `Hace ${Math.floor(diffInHours / 24)}d`;
+      return `${Math.floor(diffInHours / 24)}d ago`;
     }
   };
 

@@ -118,7 +118,7 @@ const FlappyBirdGame: React.FC = () => {
   const GRAVITY = 0.15;
   const JUMP_FORCE = -5;
   const OBSTACLE_SPEED = 4; // 2x
-  const OBSTACLE_GAP = 400; // 2x - Reduced gap between obstacles
+  const OBSTACLE_GAP = 300; // 1.5x - Reduced gap between obstacles for more difficulty
   const OBSTACLE_WIDTH = 120; // 2x
   const BIRD_SIZE = 80; // 2.67x - Hitbox size (for collisions) - Made bigger
   const BIRD_DISPLAY_SIZE = 160; // 2.67x - Visual size (for rendering) - Made bigger
@@ -171,18 +171,20 @@ const FlappyBirdGame: React.FC = () => {
 
   const createStars = useCallback((canvasWidth: number, canvasHeight: number) => {
     const newStars: Star[] = [];
-    const starCount = 100; // Number of stars
+    const starCount = 80; // Reduced number of stars
     
+    // Create stars with better distribution
     for (let i = 0; i < starCount; i++) {
       newStars.push({
-        x: Math.random() * canvasWidth,
-        y: Math.random() * canvasHeight,
+        x: Math.random() * (canvasWidth + 100), // Start some stars off-screen
+        y: Math.random() * canvasHeight, // Distribute across full height
         size: Math.random() * 2 + 1, // Size between 1-3 pixels
         speed: Math.random() * 0.5 + 0.1, // Speed between 0.1-0.6
         opacity: Math.random() * 0.8 + 0.2 // Opacity between 0.2-1.0
       });
     }
     
+    console.log('Created stars:', newStars.length, 'for canvas:', canvasWidth, 'x', canvasHeight);
     return newStars;
   }, []);
 
@@ -202,7 +204,7 @@ const FlappyBirdGame: React.FC = () => {
         let newX = star.x - star.speed;
         // Reset star position when it goes off screen
         if (newX < -star.size) {
-          newX = canvasWidth + star.size;
+          newX = canvasWidth + Math.random() * 100; // Randomize re-entry position
         }
         return {
           ...star,
@@ -238,7 +240,7 @@ const FlappyBirdGame: React.FC = () => {
 
   useEffect(() => {
     const loadImages = async () => {
-      const imageNames = ['bird', 'deadge2', 'obstacle', 'obstacle1', 'filler', 'sky'];
+      const imageNames = ['bird', 'deadge2', 'sky'];
       const loadedImages: {[key: string]: HTMLImageElement} = {};
 
       try {
@@ -251,15 +253,6 @@ const FlappyBirdGame: React.FC = () => {
               break;
             case 'deadge2':
               imagePath = '/game/sprites/deadge2.png';
-              break;
-            case 'obstacle':
-              imagePath = '/game/sprites/obstacle.png';
-              break;
-            case 'obstacle1':
-              imagePath = '/game/sprites/obstacle1.png';
-              break;
-            case 'filler':
-              imagePath = '/game/sprites/filler.png';
               break;
             case 'sky':
               imagePath = '/game/backgrounds/sky.png';
@@ -305,6 +298,10 @@ const FlappyBirdGame: React.FC = () => {
           setStars(initialStars);
         } else {
           console.log('Canvas not available for stars initialization');
+          // Fallback: create stars with default dimensions
+          const fallbackStars = createStars(800, 600);
+          console.log('Creating fallback stars:', fallbackStars.length);
+          setStars(fallbackStars);
         }
         
         // Tell Farcaster the app is ready after images are loaded (if in Farcaster context)
@@ -605,109 +602,205 @@ const FlappyBirdGame: React.FC = () => {
     ctx.fillStyle = skyGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw moving stars
+    // Draw moving stars with futuristic effects
     console.log('Rendering stars:', stars.length);
     stars.forEach(star => {
       ctx.save();
       ctx.globalAlpha = star.opacity;
-      ctx.fillStyle = '#FFFFFF'; // White stars
+      
+      // Create gradient for stars
+      const starGradient = ctx.createRadialGradient(
+        star.x, star.y, 0,
+        star.x, star.y, star.size * 2
+      );
+      starGradient.addColorStop(0, '#FFFFFF');
+      starGradient.addColorStop(0.5, '#00FFFF');
+      starGradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+      
+      // Draw star with gradient
+      ctx.fillStyle = starGradient;
       ctx.beginPath();
       ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
       ctx.fill();
       
-      // Add a subtle glow effect for larger stars
-      if (star.size > 2) {
+      // Add glow effect for all stars
+      ctx.shadowColor = '#00FFFF';
+      ctx.shadowBlur = star.size * 2;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Add twinkling effect for larger stars
+      if (star.size > 1.5) {
         ctx.shadowColor = '#FFFFFF';
-        ctx.shadowBlur = 3;
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.beginPath();
-        ctx.arc(star.x, star.y, star.size * 0.5, 0, Math.PI * 2);
+        ctx.arc(star.x, star.y, star.size * 0.3, 0, Math.PI * 2);
         ctx.fill();
       }
+      
       ctx.restore();
     });
 
     // Invisible ceiling - no visual rendering, only collision detection
 
-    // Draw simple ground (no background image)
-    const groundHeight = 80;
-    const groundY = canvas.height - groundHeight;
-    
-    // Create a simple gradient ground
-    const groundGradient = ctx.createLinearGradient(0, groundY, 0, canvas.height);
-    groundGradient.addColorStop(0, '#8B4513'); // Brown
-    groundGradient.addColorStop(0.5, '#A0522D'); // Saddle brown
-    groundGradient.addColorStop(1, '#654321'); // Dark brown
-    
-    ctx.fillStyle = groundGradient;
-    ctx.fillRect(0, groundY, canvas.width, groundHeight);
-    
-    // Grass texture lines removed - clean ground
+    // Ground removed - only collision detection remains
 
-    // Draw obstacles with new sprite system
+    // Draw futuristic pipe obstacles
     obstacles.forEach(obstacle => {
-      // Enable image smoothing for better quality
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
+      const pipeWidth = OBSTACLE_WIDTH;
+      const pipeEndHeight = 40; // Height of the pipe mouth
       
-      // Top obstacle (pointing up) - use obstacle1.png
-      if (images.obstacle1) {
-        // Draw filler from top of canvas to the obstacle
-        if (images.filler) {
-          const fillerHeight = 50; // Height of each filler piece
-          const obstacleHeight = 50; // Fixed height for main obstacle
-          const fillerEndY = Math.max(0, obstacle.topHeight - obstacleHeight);
-          
-          for (let y = 0; y < fillerEndY; y += fillerHeight) {
-            const currentFillerHeight = Math.min(fillerHeight, fillerEndY - y);
-            ctx.drawImage(
-              images.filler,
-              obstacle.x, y, OBSTACLE_WIDTH, currentFillerHeight
-            );
-          }
-        }
-        
-        // Draw the main top obstacle (pointing up) at the bottom of the top section
-        const obstacleHeight = 50; // Fixed height for main obstacle
-        ctx.drawImage(
-          images.obstacle1,
-          obstacle.x, obstacle.topHeight - obstacleHeight, OBSTACLE_WIDTH, obstacleHeight
-        );
+      // Top obstacle - pipe pointing down
+      // Main pipe body
+      const topPipeGradient = ctx.createLinearGradient(obstacle.x, 0, obstacle.x + pipeWidth, 0);
+      topPipeGradient.addColorStop(0, '#1a1a2e'); // Dark blue
+      topPipeGradient.addColorStop(0.3, '#16213e'); // Medium blue
+      topPipeGradient.addColorStop(0.7, '#0f3460'); // Light blue
+      topPipeGradient.addColorStop(1, '#1a1a2e'); // Dark blue
+      
+      ctx.fillStyle = topPipeGradient;
+      ctx.fillRect(obstacle.x, 0, pipeWidth, obstacle.topHeight - pipeEndHeight);
+      
+      // Top pipe mouth (pointing down) - Flappy Bird style with futuristic twist
+      const mouthHeight = 20; // Shorter mouth like original
+      const mouthY = obstacle.topHeight - mouthHeight;
+      
+      // Main pipe mouth body (wider than pipe)
+      const mouthWidth = pipeWidth + 8;
+      const mouthX = obstacle.x - 4;
+      
+      // Create mouth gradient (darker at top, lighter at bottom)
+      const mouthGradient = ctx.createLinearGradient(mouthX, mouthY, mouthX, mouthY + mouthHeight);
+      mouthGradient.addColorStop(0, '#0f3460'); // Dark blue top
+      mouthGradient.addColorStop(0.5, '#16213e'); // Medium blue middle
+      mouthGradient.addColorStop(1, '#1a1a2e'); // Dark blue bottom
+      
+      ctx.fillStyle = mouthGradient;
+      ctx.fillRect(mouthX, mouthY, mouthWidth, mouthHeight);
+      
+      // Add mouth rim (like original Flappy Bird)
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(mouthX, mouthY, mouthWidth, mouthHeight);
+      
+      // Add inner shadow for depth
+      ctx.fillStyle = '#0a0a1a';
+      ctx.fillRect(mouthX + 2, mouthY + 2, mouthWidth - 4, mouthHeight - 4);
+      
+      // Add highlight on top edge
+      ctx.strokeStyle = '#4a9eff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(mouthX + 2, mouthY + 2);
+      ctx.lineTo(mouthX + mouthWidth - 2, mouthY + 2);
+      ctx.stroke();
+      
+      // Add side highlights
+      ctx.beginPath();
+      ctx.moveTo(mouthX + 2, mouthY + 2);
+      ctx.lineTo(mouthX + 2, mouthY + mouthHeight - 2);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(mouthX + mouthWidth - 2, mouthY + 2);
+      ctx.lineTo(mouthX + mouthWidth - 2, mouthY + mouthHeight - 2);
+      ctx.stroke();
+      
+      // Bottom obstacle - pipe pointing up
+      // Main pipe body
+      const bottomPipeGradient = ctx.createLinearGradient(obstacle.x, obstacle.bottomY, obstacle.x + pipeWidth, obstacle.bottomY);
+      bottomPipeGradient.addColorStop(0, '#1a1a2e'); // Dark blue
+      bottomPipeGradient.addColorStop(0.3, '#16213e'); // Medium blue
+      bottomPipeGradient.addColorStop(0.7, '#0f3460'); // Light blue
+      bottomPipeGradient.addColorStop(1, '#1a1a2e'); // Dark blue
+      
+      ctx.fillStyle = bottomPipeGradient;
+      ctx.fillRect(obstacle.x, obstacle.bottomY + pipeEndHeight, pipeWidth, canvas.height - obstacle.bottomY - pipeEndHeight);
+      
+      // Bottom pipe mouth (pointing up) - Flappy Bird style with futuristic twist
+      const bottomMouthHeight = 20; // Shorter mouth like original
+      const bottomMouthY = obstacle.bottomY;
+      
+      // Main pipe mouth body (wider than pipe)
+      const bottomMouthWidth = pipeWidth + 8;
+      const bottomMouthX = obstacle.x - 4;
+      
+      // Create mouth gradient (darker at bottom, lighter at top)
+      const bottomMouthGradient = ctx.createLinearGradient(bottomMouthX, bottomMouthY, bottomMouthX, bottomMouthY + bottomMouthHeight);
+      bottomMouthGradient.addColorStop(0, '#1a1a2e'); // Dark blue bottom
+      bottomMouthGradient.addColorStop(0.5, '#16213e'); // Medium blue middle
+      bottomMouthGradient.addColorStop(1, '#0f3460'); // Dark blue top
+      
+      ctx.fillStyle = bottomMouthGradient;
+      ctx.fillRect(bottomMouthX, bottomMouthY, bottomMouthWidth, bottomMouthHeight);
+      
+      // Add mouth rim (like original Flappy Bird)
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(bottomMouthX, bottomMouthY, bottomMouthWidth, bottomMouthHeight);
+      
+      // Add inner shadow for depth
+      ctx.fillStyle = '#0a0a1a';
+      ctx.fillRect(bottomMouthX + 2, bottomMouthY + 2, bottomMouthWidth - 4, bottomMouthHeight - 4);
+      
+      // Add highlight on bottom edge
+      ctx.strokeStyle = '#4a9eff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(bottomMouthX + 2, bottomMouthY + bottomMouthHeight - 2);
+      ctx.lineTo(bottomMouthX + bottomMouthWidth - 2, bottomMouthY + bottomMouthHeight - 2);
+      ctx.stroke();
+      
+      // Add side highlights
+      ctx.beginPath();
+      ctx.moveTo(bottomMouthX + 2, bottomMouthY + 2);
+      ctx.lineTo(bottomMouthX + 2, bottomMouthY + bottomMouthHeight - 2);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(bottomMouthX + bottomMouthWidth - 2, bottomMouthY + 2);
+      ctx.lineTo(bottomMouthX + bottomMouthWidth - 2, bottomMouthY + bottomMouthHeight - 2);
+      ctx.stroke();
+      
+      // Add futuristic details
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 2;
+      
+      // Vertical lines on pipe body
+      for (let i = 0; i < obstacle.topHeight - pipeEndHeight; i += 30) {
+        ctx.beginPath();
+        ctx.moveTo(obstacle.x + 10, i);
+        ctx.lineTo(obstacle.x + 10, i + 15);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(obstacle.x + pipeWidth - 10, i);
+        ctx.lineTo(obstacle.x + pipeWidth - 10, i + 15);
+        ctx.stroke();
       }
       
-      // Bottom obstacle (pointing down) - use obstacle.png
-      if (images.obstacle) {
-        const obstacleHeight = 50; // Fixed height for main obstacle
-        
-        // Draw the main bottom obstacle (pointing down) at the top of the bottom section
-        ctx.drawImage(
-          images.obstacle,
-          obstacle.x, obstacle.bottomY, OBSTACLE_WIDTH, obstacleHeight
-        );
-        
-        // Draw filler from the obstacle to the bottom of canvas
-        if (images.filler) {
-          const fillerHeight = 50; // Height of each filler piece
-          for (let y = obstacle.bottomY + obstacleHeight; y < canvas.height; y += fillerHeight) {
-            const currentFillerHeight = Math.min(fillerHeight, canvas.height - y);
-            ctx.drawImage(
-              images.filler,
-              obstacle.x, y, OBSTACLE_WIDTH, currentFillerHeight
-            );
-          }
-        }
+      for (let i = obstacle.bottomY + pipeEndHeight; i < canvas.height; i += 30) {
+        ctx.beginPath();
+        ctx.moveTo(obstacle.x + 10, i);
+        ctx.lineTo(obstacle.x + 10, i + 15);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(obstacle.x + pipeWidth - 10, i);
+        ctx.lineTo(obstacle.x + pipeWidth - 10, i + 15);
+        ctx.stroke();
       }
+      
+      // Add glow effect
+      ctx.shadowColor = '#00ffff';
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(obstacle.x, 0, pipeWidth, obstacle.topHeight - pipeEndHeight);
+      ctx.strokeRect(obstacle.x, obstacle.bottomY + pipeEndHeight, pipeWidth, canvas.height - obstacle.bottomY - pipeEndHeight);
+      ctx.shadowBlur = 0;
     });
-    
-    // Fallback: simple rectangles for obstacles if images not loaded
-    if (!images.obstacle && !images.obstacle1) {
-      ctx.fillStyle = '#228B22';
-      obstacles.forEach(obstacle => {
-        // Top obstacle
-        ctx.fillRect(obstacle.x, 0, OBSTACLE_WIDTH, obstacle.topHeight);
-        // Bottom obstacle
-        ctx.fillRect(obstacle.x, obstacle.bottomY, OBSTACLE_WIDTH, canvas.height - obstacle.bottomY);
-      });
-    }
 
     // Draw power-ups
     powerUps.forEach(powerUp => {
@@ -833,54 +926,48 @@ const FlappyBirdGame: React.FC = () => {
 
       {/* UI Overlay */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        {/* Score - Always visible during gameplay */}
-        {gameState.isPlaying && !gameState.isGameOver && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-            <NumberDisplay
-              value={gameState.score}
-              digits={3}
-              size={50}
-              color="#ffffff"
-              glowColor="#00ff88"
-            />
+        {/* Score - Always visible */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="text-white text-5xl font-bold drop-shadow-[0_0_15px_rgba(0,255,255,1)] bg-black bg-opacity-30 px-4 py-2 rounded-lg font-mono">
+            {gameState.score.toString().padStart(3, '0')}
           </div>
-        )}
+        </div>
 
         {/* Game Over Screen */}
         {gameState.isGameOver && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 pointer-events-auto">
-            <AnimatedText animation="bounce" delay={200}>
-              <div className="text-center text-white mb-8">
-                <h2 className="text-4xl font-bold mb-4">GAME OVER</h2>
+            <AnimatedText animation="futuristic" variant="title" delay={200}>
+              <div className="text-center mb-8">
+                <h2 className="mb-4">GAME OVER</h2>
                 <div className="text-2xl mb-2">Score: {gameState.score}</div>
                 {gameState.score > gameState.highScore && (
-                  <div className="text-yellow-400 text-lg animate-pulse">¡Nuevo récord!</div>
+                  <div className="text-cyan-400 text-lg animate-pulse">New Record!</div>
                 )}
               </div>
             </AnimatedText>
-            <AnimatedText animation="slideUp" delay={600}>
+            <AnimatedText animation="cyber" delay={600}>
               <div className="flex flex-wrap gap-4 justify-center">
                 <button
                   onClick={handleJump}
-                  className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
+                  className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_rgba(0,255,255,0.5)] hover:shadow-[0_0_30px_rgba(0,255,255,0.8)] border border-cyan-400"
                 >
                   PLAY AGAIN
                 </button>
                 <button
                   onClick={() => setShowLeaderboard(!showLeaderboard)}
-                  className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
+                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.8)] border border-blue-400"
                 >
-                  {showLeaderboard ? 'OCULTAR' : 'LEADERBOARD'}
+                  {showLeaderboard ? 'HIDE' : 'LEADERBOARD'}
                 </button>
                 <button
                   onClick={() => setShowAchievements(!showAchievements)}
-                  className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
+                  className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(251,191,36,0.5)] hover:shadow-[0_0_25px_rgba(251,191,36,0.8)] border border-yellow-400"
                 >
                   {showAchievements ? 'HIDE' : 'ACHIEVEMENTS'}
                 </button>
                 <button
                   onClick={() => shareScore(gameState.score)}
-                  className="px-6 py-3 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105"
+                  className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] hover:shadow-[0_0_25px_rgba(168,85,247,0.8)] border border-purple-400"
                 >
                   SHARE
                 </button>
@@ -892,18 +979,18 @@ const FlappyBirdGame: React.FC = () => {
         {/* Start Screen */}
         {!gameState.isPlaying && !gameState.isGameOver && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 pointer-events-auto">
-            <AnimatedText animation="bounce" delay={0}>
-              <div className="text-center text-white mb-8">
-                <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
+            <AnimatedText animation="futuristic" variant="title" delay={0}>
+              <div className="text-center mb-8">
+                <h1 className="mb-4">
                   Flappy DOBI
                 </h1>
-                <div className="text-xl mb-8 animate-pulse">Tap to start</div>
+                <div className="text-xl mb-8">Tap to start</div>
               </div>
             </AnimatedText>
-            <AnimatedText animation="slideUp" delay={500}>
+            <AnimatedText animation="cyber" variant="button" delay={500}>
               <button
                 onClick={handleJump}
-                className="px-8 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-colors transform hover:scale-105 shadow-lg hover:shadow-xl"
+                className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_rgba(0,255,255,0.5)] hover:shadow-[0_0_30px_rgba(0,255,255,0.8)] border border-cyan-400"
               >
                 PLAY
               </button>
@@ -914,8 +1001,10 @@ const FlappyBirdGame: React.FC = () => {
 
         {/* Instructions */}
         {gameState.isPlaying && !gameState.isGameOver && (
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-center text-sm opacity-70">
-            Tap to jump
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-center text-sm">
+            <AnimatedText animation="neon" variant="button">
+              Tap to jump
+            </AnimatedText>
           </div>
         )}
 
