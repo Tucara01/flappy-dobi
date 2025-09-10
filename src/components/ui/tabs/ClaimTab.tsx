@@ -8,6 +8,7 @@ import {
   isSessionActive,
   type Game
 } from "../../../lib/gameClient";
+import { useFlappyDobiContract } from "../../../hooks/useFlappyDobiContract";
 
 interface GameState {
   gameId?: number;
@@ -39,6 +40,17 @@ export function ClaimTab() {
   const [claimableGames, setClaimableGames] = useState<Game[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [claimMessage, setClaimMessage] = useState("");
+  
+  // Smart contract integration
+  const { 
+    hasActiveGame, 
+    currentGame, 
+    activeGameId: contractGameId,
+    claimWinnings,
+    isLoading: contractLoading,
+    isConfirmed: contractConfirmed,
+    error: contractError 
+  } = useFlappyDobiContract();
 
   // Check for claimable games on component mount
   useEffect(() => {
@@ -108,6 +120,28 @@ export function ClaimTab() {
     }
   };
 
+  // Reclamar premio del contrato inteligente
+  const claimContractReward = async (gameId: number) => {
+    setIsLoading(true);
+    setClaimMessage("");
+    
+    try {
+      const hash = await claimWinnings(gameId);
+      if (hash) {
+        setClaimMessage(`Success! Contract reward claimed. Transaction hash: ${String(hash).slice(0, 10)}...`);
+        // Refresh contract data
+        window.location.reload(); // Simple refresh to update contract state
+      } else {
+        setClaimMessage('Error claiming contract reward');
+      }
+    } catch (error) {
+      console.error('Error claiming contract reward:', error);
+      setClaimMessage('Error claiming contract reward');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6 px-4">
       <div className="text-center">
@@ -122,6 +156,57 @@ export function ClaimTab() {
           {isLoading ? 'Loading...' : 'Refresh Bet Games'}
         </button>
       </div>
+
+      {/* Smart Contract Status */}
+      {hasActiveGame && currentGame && (
+        <div className="bg-purple-900 rounded-lg p-6 border border-purple-500">
+          <h3 className="text-lg font-semibold text-white mb-4">Smart Contract Game</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-white font-medium">Game #{contractGameId}</p>
+                <p className="text-gray-300 text-sm">Status: {currentGame.status}</p>
+                <p className="text-gray-400 text-xs">
+                  Contract: {process.env.NEXT_PUBLIC_CONTRACT_ADDRESS?.slice(0, 10)}...{process.env.NEXT_PUBLIC_CONTRACT_ADDRESS?.slice(-8) || 'Not configured'}
+                </p>
+                <p className="text-gray-400 text-xs">
+                  Bet: 1 USDC • Reward: 2 USDC
+                </p>
+              </div>
+              <div className="text-right">
+                {currentGame.status === 'Won' && (
+                  <div className="space-y-2">
+                    <p className="text-green-400 text-sm font-medium">🎉 You Won!</p>
+                    <p className="text-green-300 text-xs">Eligible for 2 USDC reward</p>
+                    <button
+                      onClick={() => claimContractReward(contractGameId!)}
+                      disabled={contractLoading || isLoading}
+                      className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
+                    >
+                      {contractLoading ? 'Claiming...' : 'Claim 2 USDC'}
+                    </button>
+                  </div>
+                )}
+                {currentGame.status === 'Pending' && (
+                  <div className="text-yellow-400 text-sm">
+                    ⏳ Waiting for backend evaluation...
+                  </div>
+                )}
+                {currentGame.status === 'Lost' && (
+                  <div className="text-red-400 text-sm">
+                    ❌ Game Lost - 1 USDC retained by contract
+                  </div>
+                )}
+                {currentGame.status === 'Claimed' && (
+                  <div className="text-gray-400 text-sm">
+                    ✅ Already Claimed
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Statistics Summary */}
       {recentGames.length > 0 && (
@@ -233,16 +318,28 @@ export function ClaimTab() {
         <h3 className="text-lg font-semibold text-white mb-3">How to Earn Rewards</h3>
         <ul className="space-y-2 text-gray-300 text-sm">
           <li className="flex items-start space-x-2">
-            <span className="text-blue-400">•</span>
-            <span>Play the Flappy DOBI game in <strong>Bet Mode</strong></span>
+            <span className="text-blue-400">1.</span>
+            <span>Deposit <strong>1 USDC</strong> to create a bet game</span>
           </li>
           <li className="flex items-start space-x-2">
-            <span className="text-blue-400">•</span>
-            <span>Reach 50 points in a single bet game</span>
+            <span className="text-blue-400">2.</span>
+            <span>Play the Flappy DOBI game and reach <strong>50+ points</strong></span>
           </li>
           <li className="flex items-start space-x-2">
-            <span className="text-blue-400">•</span>
-            <span>Come back to this tab to claim your 2 USDC reward</span>
+            <span className="text-blue-400">3.</span>
+            <span>Backend evaluates your score and updates the smart contract</span>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="text-blue-400">4.</span>
+            <span>Come back to this tab to claim your <strong>2 USDC reward</strong></span>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="text-purple-400">•</span>
+            <span><strong>Smart Contract:</strong> Secure blockchain-based rewards</span>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="text-red-400">•</span>
+            <span><strong>Risk:</strong> If you don&apos;t reach 50 points, you lose your 1 USDC bet</span>
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-yellow-400">•</span>

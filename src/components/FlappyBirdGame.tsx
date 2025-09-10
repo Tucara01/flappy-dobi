@@ -9,6 +9,7 @@ import Leaderboard from './ui/Leaderboard';
 import { useSound } from '../hooks/useSound';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { gameAPI, initializeGameSession, isSessionActive } from '../lib/gameClient';
+import { useFlappyDobiContract } from '../hooks/useFlappyDobiContract';
 
 interface GameState {
   isPlaying: boolean;
@@ -77,6 +78,18 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   
   // Leaderboard
   const { leaderboard, isLoading, error, submitScore, loadLeaderboard, shareScore } = useLeaderboard();
+  
+  // Smart contract integration
+  const { 
+    depositAndCreateGame, 
+    claimWinnings, 
+    hasActiveGame, 
+    currentGame, 
+    activeGameId: contractGameId,
+    isLoading: contractLoading,
+    isConfirmed: contractConfirmed,
+    error: contractError 
+  } = useFlappyDobiContract();
   
   
   // Game state
@@ -397,36 +410,52 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       const address = playerAddress || '0x0000000000000000000000000000000000000000';
       console.log('Creating game for player:', address, 'mode:', mode);
       
-      // Inicializar sesión si no existe
-      if (!isSessionActive()) {
-        const sessionResult = await initializeGameSession(address);
-        if (!sessionResult.success) {
-          console.error('Failed to initialize game session:', sessionResult.error);
+      if (mode === 'bet') {
+        // Para modo bet, depositar 1 USDC y crear juego en el contrato
+        console.log('Depositing 1 USDC and creating bet game with smart contract...');
+        const contractHash = await depositAndCreateGame();
+        if (contractHash) {
+          console.log('Deposit and game creation successful with hash:', contractHash);
+          // El gameId del contrato se obtendrá cuando se confirme la transacción
+          setGameState(prev => ({ ...prev, gameId: contractGameId || 0 }));
+          return contractGameId || 0;
+        } else {
+          console.error('Failed to deposit and create contract game');
           return null;
         }
-      }
-      
-      // Crear juego usando el cliente seguro
-      const result = await gameAPI.createGame(address, mode);
-      
-      if (result.success && result.data) {
-        // Type guard to ensure data has the expected structure
-        const gameData = result.data as { gameId: number };
-        if (typeof gameData === 'object' && gameData !== null && typeof gameData.gameId === 'number') {
-          console.log('Game created successfully:', gameData);
-          setGameState(prev => ({ ...prev, gameId: gameData.gameId }));
-          return gameData.gameId;
-        } else {
-          console.error('Invalid game data structure:', gameData);
-        }
       } else {
-        console.error('Game creation failed:', result.error);
+        // Para modo practice, usar el sistema original
+        // Inicializar sesión si no existe
+        if (!isSessionActive()) {
+          const sessionResult = await initializeGameSession(address);
+          if (!sessionResult.success) {
+            console.error('Failed to initialize game session:', sessionResult.error);
+            return null;
+          }
+        }
+        
+        // Crear juego usando el cliente seguro
+        const result = await gameAPI.createGame(address, mode);
+        
+        if (result.success && result.data) {
+          // Type guard to ensure data has the expected structure
+          const gameData = result.data as { gameId: number };
+          if (typeof gameData === 'object' && gameData !== null && typeof gameData.gameId === 'number') {
+            console.log('Game created successfully:', gameData);
+            setGameState(prev => ({ ...prev, gameId: gameData.gameId }));
+            return gameData.gameId;
+          } else {
+            console.error('Invalid game data structure:', gameData);
+          }
+        } else {
+          console.error('Game creation failed:', result.error);
+        }
       }
     } catch (error) {
       console.error('Error creating game:', error);
     }
     return null;
-  }, []);
+  }, [depositAndCreateGame, contractGameId]);
 
   const updateGameScore = useCallback(async (gameId: number, score: number) => {
     try {
@@ -438,6 +467,21 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       console.error('Error updating game score:', error);
     }
   }, []);
+
+  // Reclamar premio del contrato inteligente
+  const claimContractReward = useCallback(async (gameId: number) => {
+    try {
+      const hash = await claimWinnings(gameId);
+      if (hash) {
+        console.log('Prize claimed with hash:', hash);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error claiming contract reward:', error);
+      return false;
+    }
+  }, [claimWinnings]);
 
   const claimReward = useCallback(async () => {
     if (!gameState.gameId) return;
@@ -557,7 +601,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       newObstacles.forEach(obstacle => {
         if (!obstacle.passed && obstacle.x + OBSTACLE_WIDTH < bird.x) {
           obstacle.passed = true;
-          const points = 0.5; // Fixed points, divided by 2
+          const points = 1; // Fixed points per obstacle
           setGameState(prev => {
             const newScore = prev.score + points;
             if (newScore > lastScore) {
@@ -578,12 +622,29 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
 
               // Update game status to won
               if (prev.gameId) {
-                updateGameScore(prev.gameId, newScore);
-                fetch('/api/games', {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ gameId: prev.gameId, status: 'won' })
-                });
+                if (gameMode === 'bet' && contractGameId) {
+                  // Para juegos de bet, el backend evaluará el score y llamará al contrato
+                  console.log('Player won bet game! Backend will evaluate score and update contract.');
+                  // El backend debe llamar a setResult(gameId, true) en el contrato
+                  // Enviar datos al backend para que evalúe
+                  fetch('/api/games/evaluate-contract', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      gameId: contractGameId, 
+                      score: newScore,
+                      playerAddress: playerAddress 
+                    })
+                  });
+                } else {
+                  // Para juegos de practice, usar el sistema original
+                  updateGameScore(prev.gameId, newScore);
+                  fetch('/api/games', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gameId: prev.gameId, status: 'won' })
+                  });
+                }
               }
 
               // Show celebration
@@ -1140,6 +1201,11 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
                 >
                   PLAY AGAIN
                 </button>
+                {gameMode === 'bet' && gameState.hasWon && (
+                  <div className="text-center">
+                    <p className="text-green-400 text-sm mb-2">🎉 You Won! Go to Claim tab to get your reward</p>
+                  </div>
+                )}
                 <button
                   onClick={() => setShowLeaderboard(!showLeaderboard)}
                   className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.8)] border border-blue-400"
