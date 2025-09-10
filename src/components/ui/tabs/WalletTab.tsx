@@ -134,8 +134,17 @@ export function WalletTab() {
   
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const solanaWallet = useSolanaWallet();
-  const { publicKey: solanaPublicKey } = solanaWallet || {};
+  
+  // Safely get Solana wallet with error handling
+  let solanaWallet = null;
+  let solanaPublicKey = null;
+  try {
+    solanaWallet = useSolanaWallet();
+    solanaPublicKey = solanaWallet?.publicKey;
+  } catch (error) {
+    // Solana wallet not available, continue without it
+    console.log('Solana wallet not available:', error);
+  }
 
   // --- Wagmi Hooks ---
   const {

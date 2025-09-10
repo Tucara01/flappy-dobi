@@ -65,7 +65,6 @@ const NumberDisplay: React.FC<NumberDisplayProps> = ({
         stroke={color}
         strokeWidth={segmentWidth}
         strokeLinecap="round"
-        filter={`drop-shadow(0 0 ${segmentWidth}px ${glowColor})`}
       />
     );
   };

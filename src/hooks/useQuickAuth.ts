@@ -104,7 +104,8 @@ export function useQuickAuth(): UseQuickAuthReturn {
     const checkExistingAuthentication = async () => {
       try {
         // Attempt to retrieve existing token from QuickAuth SDK
-        const { token } = await sdk.quickAuth.getToken();
+        const tokenResult = await sdk.quickAuth.getToken();
+        const token = tokenResult?.token;
 
         if (token) {
           // Validate the token with our server-side API
@@ -145,7 +146,8 @@ export function useQuickAuth(): UseQuickAuthReturn {
       setStatus('loading');
 
       // Get QuickAuth session token
-      const { token } = await sdk.quickAuth.getToken();
+      const tokenResult = await sdk.quickAuth.getToken();
+      const token = tokenResult?.token;
 
       if (token) {
         // Validate the token with our server-side API
@@ -189,8 +191,8 @@ export function useQuickAuth(): UseQuickAuthReturn {
    */
   const getToken = useCallback(async (): Promise<string | null> => {
     try {
-      const { token } = await sdk.quickAuth.getToken();
-      return token;
+      const tokenResult = await sdk.quickAuth.getToken();
+      return tokenResult?.token || null;
     } catch (error) {
       console.error('Failed to retrieve authentication token:', error);
       return null;

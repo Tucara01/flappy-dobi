@@ -46,9 +46,17 @@ interface Particle {
 interface PowerUp {
   x: number;
   y: number;
-  type: 'magnet' | 'shield' | 'multiplier';
+  type: 'magnet' | 'multiplier';
   collected: boolean;
   animation: number;
+}
+
+interface Star {
+  x: number;
+  y: number;
+  size: number;
+  speed: number;
+  opacity: number;
 }
 
 const FlappyBirdGame: React.FC = () => {
@@ -95,13 +103,14 @@ const FlappyBirdGame: React.FC = () => {
   const [activePowerUps, setActivePowerUps] = useState<{[key: string]: number}>({});
   const [showCelebration, setShowCelebration] = useState(false);
   const [lastScore, setLastScore] = useState(0);
+  const [stars, setStars] = useState<Star[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [gameStats, setGameStats] = useState({
     powerUpsUsed: 0,
     obstaclesPassed: 0,
     gameStartTime: 0,
-    powerUpCounts: { magnet: 0, shield: 0, multiplier: 0 }
+    powerUpCounts: { magnet: 0, multiplier: 0 }
   });
   const [obstaclesEnabled, setObstaclesEnabled] = useState(false);
 
@@ -111,8 +120,8 @@ const FlappyBirdGame: React.FC = () => {
   const OBSTACLE_SPEED = 4; // 2x
   const OBSTACLE_GAP = 400; // 2x - Reduced gap between obstacles
   const OBSTACLE_WIDTH = 120; // 2x
-  const BIRD_SIZE = 60; // 2x - Hitbox size (for collisions)
-  const BIRD_DISPLAY_SIZE = 120; // 2x - Visual size (for rendering) - Made bigger
+  const BIRD_SIZE = 80; // 2.67x - Hitbox size (for collisions) - Made bigger
+  const BIRD_DISPLAY_SIZE = 160; // 2.67x - Visual size (for rendering) - Made bigger
 
   // Load images
   const [images, setImages] = useState<{[key: string]: HTMLImageElement}>({});
@@ -150,14 +159,31 @@ const FlappyBirdGame: React.FC = () => {
 
   // Power-up functions
   const createPowerUp = useCallback((x: number, y: number) => {
-    // Only shield power-up available
-    setPowerUps(prev => [...prev, {
-      x,
-      y,
-      type: 'shield',
-      collected: false,
-      animation: 0
-    }]);
+    // No power-ups available for now
+    // setPowerUps(prev => [...prev, {
+    //   x,
+    //   y,
+    //   type: 'magnet',
+    //   collected: false,
+    //   animation: 0
+    // }]);
+  }, []);
+
+  const createStars = useCallback((canvasWidth: number, canvasHeight: number) => {
+    const newStars: Star[] = [];
+    const starCount = 100; // Number of stars
+    
+    for (let i = 0; i < starCount; i++) {
+      newStars.push({
+        x: Math.random() * canvasWidth,
+        y: Math.random() * canvasHeight,
+        size: Math.random() * 2 + 1, // Size between 1-3 pixels
+        speed: Math.random() * 0.5 + 0.1, // Speed between 0.1-0.6
+        opacity: Math.random() * 0.8 + 0.2 // Opacity between 0.2-1.0
+      });
+    }
+    
+    return newStars;
   }, []);
 
   const updatePowerUps = useCallback(() => {
@@ -167,6 +193,22 @@ const FlappyBirdGame: React.FC = () => {
         x: powerUp.x - OBSTACLE_SPEED,
         animation: powerUp.animation + 0.1
       })).filter(powerUp => powerUp.x > -50)
+    );
+  }, []);
+
+  const updateStars = useCallback((canvasWidth: number) => {
+    setStars(prev => 
+      prev.map(star => {
+        let newX = star.x - star.speed;
+        // Reset star position when it goes off screen
+        if (newX < -star.size) {
+          newX = canvasWidth + star.size;
+        }
+        return {
+          ...star,
+          x: newX
+        };
+      })
     );
   }, []);
 
@@ -186,18 +228,9 @@ const FlappyBirdGame: React.FC = () => {
         // Update game stats
         setGameStats(prev => ({
           ...prev,
-          powerUpsUsed: prev.powerUpsUsed + 1,
-          powerUpCounts: {
-            ...prev.powerUpCounts,
-            shield: prev.powerUpCounts.shield + 1
-          }
+          powerUpsUsed: prev.powerUpsUsed + 1
         }));
         
-        // Check power-up achievements
-        checkPowerUpAchievements('shield', gameStats.powerUpsUsed + 1);
-        
-        // Activate shield
-        setActivePowerUps(prev => ({ ...prev, shield: 600 }));
         createParticles(powerUp.x, powerUp.y, 15, '#0088ff');
       }
     });
@@ -205,7 +238,7 @@ const FlappyBirdGame: React.FC = () => {
 
   useEffect(() => {
     const loadImages = async () => {
-      const imageNames = ['bird', 'obstacle', 'obstacle1', 'filler', 'background', 'sky'];
+      const imageNames = ['bird', 'deadge2', 'obstacle', 'obstacle1', 'filler', 'sky'];
       const loadedImages: {[key: string]: HTMLImageElement} = {};
 
       try {
@@ -216,6 +249,9 @@ const FlappyBirdGame: React.FC = () => {
             case 'bird':
               imagePath = '/game/sprites/personaje.png';
               break;
+            case 'deadge2':
+              imagePath = '/game/sprites/deadge2.png';
+              break;
             case 'obstacle':
               imagePath = '/game/sprites/obstacle.png';
               break;
@@ -225,11 +261,8 @@ const FlappyBirdGame: React.FC = () => {
             case 'filler':
               imagePath = '/game/sprites/filler.png';
               break;
-            case 'background':
-              imagePath = '/game/sprites/background.png';
-              break;
             case 'sky':
-              imagePath = '/game/sprites/sky.png';
+              imagePath = '/game/backgrounds/sky.png';
               break;
           }
           img.src = imagePath;
@@ -263,6 +296,13 @@ const FlappyBirdGame: React.FC = () => {
 
         setImages(loadedImages);
         setImagesLoaded(true);
+        
+        // Initialize stars for the starry background
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const initialStars = createStars(canvas.width, canvas.height);
+          setStars(initialStars);
+        }
         
         // Tell Farcaster the app is ready after images are loaded (if in Farcaster context)
         try {
@@ -324,7 +364,7 @@ const FlappyBirdGame: React.FC = () => {
           gameTime: Date.now() - gameStats.gameStartTime,
           obstaclesPassed: gameStats.obstaclesPassed
         });
-        createParticles(prevBird.x, prevBird.y, 20, '#ff4444');
+        // Removed red splash effect on ground collision
         playGameOverSound();
         return { ...prevBird, y: 400 - BIRD_SIZE, velocity: 0 };
       }
@@ -369,8 +409,7 @@ const FlappyBirdGame: React.FC = () => {
             const newScore = prev.score + points;
             if (newScore > lastScore) {
               setLastScore(newScore);
-              setShowCelebration(true);
-              setTimeout(() => setShowCelebration(false), 1000);
+              // Removed celebration splash effect
             }
             return { ...prev, score: newScore };
           });
@@ -415,40 +454,44 @@ const FlappyBirdGame: React.FC = () => {
     });
 
     // Update background
-    setBackgroundOffset(prev => (prev + 2) % 800); // 2x
+    setBackgroundOffset(prev => (prev + 2) % 800); // Background scroll speed
 
-    // Check collisions (with shield protection)
-    if (!activePowerUps.shield) {
-      obstacles.forEach(obstacle => {
-        if (
-          bird.x + BIRD_SIZE > obstacle.x &&
-          bird.x < obstacle.x + OBSTACLE_WIDTH &&
-          (bird.y < obstacle.topHeight || bird.y + BIRD_SIZE > obstacle.bottomY)
-        ) {
-          setGameState(prev => {
-            const newState = { ...prev, isGameOver: true };
-            // Submit score when game ends
-            if (prev.score > 0) {
-              submitScore(prev.score);
-            }
-            return newState;
-          });
-          
-          // Check special achievements
-          checkSpecialAchievements({
-            score: gameState.score,
-            powerUpsUsed: gameStats.powerUpsUsed,
-            gameTime: Date.now() - gameStats.gameStartTime,
-            obstaclesPassed: gameStats.obstaclesPassed
-          });
-          createParticles(bird.x, bird.y, 25, '#ff4444');
-          playCollisionSound();
-        }
-      });
+    // Update stars
+    const canvas = canvasRef.current;
+    if (canvas) {
+      updateStars(canvas.width);
     }
 
+    // Check collisions
+    obstacles.forEach(obstacle => {
+      if (
+        bird.x + BIRD_SIZE > obstacle.x &&
+        bird.x < obstacle.x + OBSTACLE_WIDTH &&
+        (bird.y < obstacle.topHeight || bird.y + BIRD_SIZE > obstacle.bottomY)
+      ) {
+        setGameState(prev => {
+          const newState = { ...prev, isGameOver: true };
+          // Submit score when game ends
+          if (prev.score > 0) {
+            submitScore(prev.score);
+          }
+          return newState;
+        });
+        
+        // Check special achievements
+        checkSpecialAchievements({
+          score: gameState.score,
+          powerUpsUsed: gameStats.powerUpsUsed,
+          gameTime: Date.now() - gameStats.gameStartTime,
+          obstaclesPassed: gameStats.obstaclesPassed
+        });
+        // Removed red splash effect on obstacle collision
+        playCollisionSound();
+      }
+    });
+
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles, activePowerUps.shield, obstaclesEnabled, gameStats.gameStartTime, updateParticles, updatePowerUps, checkPowerUpCollision, createParticles, createPowerUp, playGameOverSound, playScoreSound, playCollisionSound, submitScore]);
+  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles, obstaclesEnabled, gameStats.gameStartTime, updateParticles, updatePowerUps, updateStars, checkPowerUpCollision, createParticles, createPowerUp, playGameOverSound, playScoreSound, playCollisionSound, submitScore]);
 
   // Start game loop
   useEffect(() => {
@@ -481,7 +524,7 @@ const FlappyBirdGame: React.FC = () => {
         powerUpsUsed: 0,
         obstaclesPassed: 0,
         gameStartTime: Date.now(),
-        powerUpCounts: { magnet: 0, shield: 0, multiplier: 0 }
+        powerUpCounts: { magnet: 0, multiplier: 0 }
       });
     } else if (!gameState.isGameOver) {
       setBird(prev => ({ ...prev, velocity: JUMP_FORCE }));
@@ -506,7 +549,7 @@ const FlappyBirdGame: React.FC = () => {
     }
   }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, createParticles, playJumpSound]);
 
-  // Handle keyboard
+  // Handle keyboard and touch events
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.code === 'Space') {
@@ -515,8 +558,27 @@ const FlappyBirdGame: React.FC = () => {
       }
     };
 
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      handleJump();
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    // Keyboard events
     window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+    
+    // Touch events for mobile devices
+    window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
   }, [handleJump]);
 
   // Render game
@@ -530,34 +592,52 @@ const FlappyBirdGame: React.FC = () => {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw sky background
-    if (images.sky) {
-      // Enable image smoothing for better quality
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
+    // Draw starry night sky background
+    // Create dark blue gradient background
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    skyGradient.addColorStop(0, '#0B1426'); // Very dark blue
+    skyGradient.addColorStop(0.5, '#1A1A2E'); // Dark blue
+    skyGradient.addColorStop(1, '#16213E'); // Slightly lighter dark blue
+    
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw moving stars
+    stars.forEach(star => {
+      ctx.save();
+      ctx.globalAlpha = star.opacity;
+      ctx.fillStyle = '#FFFFFF'; // White stars
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+      ctx.fill();
       
-      ctx.drawImage(images.sky, 0, 0, canvas.width, canvas.height);
-    } else {
-      // Fallback: solid color background
-      ctx.fillStyle = '#87CEEB';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+      // Add a subtle glow effect for larger stars
+      if (star.size > 2) {
+        ctx.shadowColor = '#FFFFFF';
+        ctx.shadowBlur = 3;
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
 
     // Invisible ceiling - no visual rendering, only collision detection
 
-    // Draw scrolling background
-    if (images.background) {
-      // Enable image smoothing for better quality
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      
-      ctx.drawImage(images.background, -backgroundOffset, 0, canvas.width, canvas.height);
-      ctx.drawImage(images.background, canvas.width - backgroundOffset, 0, canvas.width, canvas.height);
-    } else {
-      // Fallback: simple ground
-      ctx.fillStyle = '#90EE90';
-      ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
-    }
+    // Draw simple ground (no background image)
+    const groundHeight = 80;
+    const groundY = canvas.height - groundHeight;
+    
+    // Create a simple gradient ground
+    const groundGradient = ctx.createLinearGradient(0, groundY, 0, canvas.height);
+    groundGradient.addColorStop(0, '#8B4513'); // Brown
+    groundGradient.addColorStop(0.5, '#A0522D'); // Saddle brown
+    groundGradient.addColorStop(1, '#654321'); // Dark brown
+    
+    ctx.fillStyle = groundGradient;
+    ctx.fillRect(0, groundY, canvas.width, groundHeight);
+    
+    // Grass texture lines removed - clean ground
 
     // Draw obstacles with new sprite system
     obstacles.forEach(obstacle => {
@@ -570,7 +650,7 @@ const FlappyBirdGame: React.FC = () => {
         // Draw filler from top of canvas to the obstacle
         if (images.filler) {
           const fillerHeight = 50; // Height of each filler piece
-          const obstacleHeight = 50; // Height of the main obstacle sprite
+          const obstacleHeight = 50; // Fixed height for main obstacle
           const fillerEndY = Math.max(0, obstacle.topHeight - obstacleHeight);
           
           for (let y = 0; y < fillerEndY; y += fillerHeight) {
@@ -583,7 +663,7 @@ const FlappyBirdGame: React.FC = () => {
         }
         
         // Draw the main top obstacle (pointing up) at the bottom of the top section
-        const obstacleHeight = 50; // Height of the main obstacle sprite
+        const obstacleHeight = 50; // Fixed height for main obstacle
         ctx.drawImage(
           images.obstacle1,
           obstacle.x, obstacle.topHeight - obstacleHeight, OBSTACLE_WIDTH, obstacleHeight
@@ -592,7 +672,7 @@ const FlappyBirdGame: React.FC = () => {
       
       // Bottom obstacle (pointing down) - use obstacle.png
       if (images.obstacle) {
-        const obstacleHeight = 50; // Height of the main obstacle sprite
+        const obstacleHeight = 50; // Fixed height for main obstacle
         
         // Draw the main bottom obstacle (pointing down) at the top of the bottom section
         ctx.drawImage(
@@ -646,16 +726,6 @@ const FlappyBirdGame: React.FC = () => {
             ctx.textAlign = 'center';
             ctx.fillText('M', powerUp.x, powerUp.y + 4);
             break;
-          case 'shield':
-            ctx.fillStyle = '#0088ff';
-            ctx.beginPath();
-            ctx.arc(powerUp.x, powerUp.y, size/2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('S', powerUp.x, powerUp.y + 4);
-            break;
           case 'multiplier':
             ctx.fillStyle = '#ffaa00';
             ctx.beginPath();
@@ -683,47 +753,29 @@ const FlappyBirdGame: React.FC = () => {
       ctx.restore();
     });
 
-    // Draw bird with shield effect
-    if (images.bird) {
+    // Draw bird (or dead sprite when game over)
+    const birdSprite = gameState.isGameOver && images.deadge2 ? images.deadge2 : images.bird;
+    if (birdSprite) {
       ctx.save();
       
-      // Shield effect
-      if (activePowerUps.shield) {
-        ctx.strokeStyle = '#0088ff';
-        ctx.lineWidth = 3;
-        ctx.globalAlpha = 0.6;
-        ctx.beginPath();
-        ctx.arc(bird.x + BIRD_SIZE/2, bird.y + BIRD_SIZE/2, BIRD_SIZE/2 + 10, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
-      
       ctx.translate(bird.x + BIRD_SIZE/2, bird.y + BIRD_SIZE/2);
-      ctx.rotate((bird.rotation * Math.PI) / 180);
+      // Don't rotate when dead
+      if (!gameState.isGameOver) {
+        ctx.rotate((bird.rotation * Math.PI) / 180);
+      }
       
       // Enable image smoothing for better quality
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       
       ctx.drawImage(
-        images.bird,
+        birdSprite,
         -BIRD_DISPLAY_SIZE/2, -BIRD_DISPLAY_SIZE/2, BIRD_DISPLAY_SIZE, BIRD_DISPLAY_SIZE
       );
       ctx.restore();
     } else {
       // Fallback: simple circle for bird
       ctx.save();
-      
-      // Shield effect
-      if (activePowerUps.shield) {
-        ctx.strokeStyle = '#0088ff';
-        ctx.lineWidth = 3;
-        ctx.globalAlpha = 0.6;
-        ctx.beginPath();
-        ctx.arc(bird.x + BIRD_SIZE/2, bird.y + BIRD_SIZE/2, BIRD_SIZE/2 + 10, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
       
       ctx.translate(bird.x + BIRD_SIZE/2, bird.y + BIRD_SIZE/2);
       ctx.rotate((bird.rotation * Math.PI) / 180);
@@ -742,7 +794,7 @@ const FlappyBirdGame: React.FC = () => {
       
       ctx.restore();
     }
-  }, [images, backgroundOffset, obstacles, bird, imagesLoaded, powerUps, particles, activePowerUps]);
+  }, [images, backgroundOffset, obstacles, bird, imagesLoaded, powerUps, particles, activePowerUps, stars]);
 
   // Render on every frame
   useEffect(() => {
@@ -759,29 +811,34 @@ const FlappyBirdGame: React.FC = () => {
 
   return (
     <div className="relative w-full h-screen bg-gray-900 overflow-hidden">
-      {/* Game Canvas */}
+      {/* Game Canvas - Optimized for Farcaster Mini Apps */}
       <canvas
         ref={canvasRef}
         width={800}
         height={1200}
-        className="w-full h-full object-cover"
+        className="w-full h-full object-cover touch-none"
         onClick={handleJump}
+        style={{
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none'
+        }}
       />
 
       {/* UI Overlay */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        {/* Score - Only during gameplay */}
+        {/* Score - Always visible during gameplay */}
         {gameState.isPlaying && !gameState.isGameOver && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
-            <AnimatedText animation="glow" delay={0}>
-              <NumberDisplay
-                value={gameState.score}
-                digits={3}
-                size={50}
-                color="#ffffff"
-                glowColor="#00ff88"
-              />
-            </AnimatedText>
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+            <NumberDisplay
+              value={gameState.score}
+              digits={3}
+              size={50}
+              color="#ffffff"
+              glowColor="#00ff88"
+            />
           </div>
         )}
 
@@ -850,15 +907,6 @@ const FlappyBirdGame: React.FC = () => {
           </div>
         )}
 
-        {/* Shield indicator */}
-        {gameState.isPlaying && !gameState.isGameOver && activePowerUps.shield && (
-          <div className="absolute top-20 left-4 flex flex-col gap-2">
-            <div className="bg-blue-500 bg-opacity-80 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
-              Escudo ({Math.ceil(activePowerUps.shield / 60)}s)
-            </div>
-          </div>
-        )}
 
         {/* Instructions */}
         {gameState.isPlaying && !gameState.isGameOver && (
