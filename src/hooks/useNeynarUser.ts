@@ -16,11 +16,25 @@ export function useNeynarUser(context?: { user?: { fid?: number } }) {
       setError(null);
       return;
     }
+    
     setLoading(true);
     setError(null);
-    fetch(`/api/users?fids=${context.user.fid}`)
+    
+    // Add timeout and better error handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    fetch(`/api/users?fids=${context.user.fid}`, {
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
       .then((response) => {
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         return response.json();
       })
       .then((data) => {
@@ -30,8 +44,29 @@ export function useNeynarUser(context?: { user?: { fid?: number } }) {
           setUser(null);
         }
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          setError('Request timeout - API not responding');
+        } else if (err.message.includes('Failed to fetch')) {
+          setError('Network error - API endpoint not available');
+        } else {
+          setError(err.message);
+        }
+        console.warn('useNeynarUser fetch error:', err);
+        
+        // Set a fallback user to prevent app from breaking
+        setUser({
+          fid: context.user.fid,
+          score: 0
+        });
+      })
       .finally(() => setLoading(false));
+      
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [context?.user?.fid]);
 
   return { user, loading, error };

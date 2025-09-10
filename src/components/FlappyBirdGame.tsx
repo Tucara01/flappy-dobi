@@ -94,6 +94,9 @@ const FlappyBirdGame: React.FC = () => {
   const [lastScore, setLastScore] = useState(0);
   const [stars, setStars] = useState<Star[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  
+  // Pre-create gradients for better performance
+  const [starGradients, setStarGradients] = useState<{ [key: string]: CanvasGradient }>({});
   const [gameStats, setGameStats] = useState({
     powerUpsUsed: 0,
     obstaclesPassed: 0,
@@ -117,32 +120,37 @@ const FlappyBirdGame: React.FC = () => {
 
   // Particle system functions
   const createParticles = useCallback((x: number, y: number, count: number, color: string) => {
+    // Limit particles for better performance
+    const limitedCount = Math.min(count, 8);
     const newParticles: Particle[] = [];
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < limitedCount; i++) {
       newParticles.push({
-        x: x + (Math.random() - 0.5) * 20,
-        y: y + (Math.random() - 0.5) * 20,
-        vx: (Math.random() - 0.5) * 4,
-        vy: (Math.random() - 0.5) * 4,
-        life: 1,
-        maxLife: 1,
+        x: x + (Math.random() - 0.5) * 15,
+        y: y + (Math.random() - 0.5) * 15,
+        vx: (Math.random() - 0.5) * 3,
+        vy: (Math.random() - 0.5) * 3,
+        life: 0.8, // Shorter life for better performance
+        maxLife: 0.8,
         color,
-        size: Math.random() * 3 + 1
+        size: Math.random() * 2 + 1
       });
     }
     setParticles(prev => [...prev, ...newParticles]);
   }, []);
 
   const updateParticles = useCallback(() => {
-    setParticles(prev => 
-      prev.map(particle => ({
+    setParticles(prev => {
+      const updated = prev.map(particle => ({
         ...particle,
         x: particle.x + particle.vx,
         y: particle.y + particle.vy,
-        vy: particle.vy + 0.1, // gravity
-        life: particle.life - 0.02
-      })).filter(particle => particle.life > 0)
-    );
+        vy: particle.vy + 0.08, // gravity
+        life: particle.life - 0.03 // Faster decay
+      })).filter(particle => particle.life > 0);
+      
+      // Limit total particles for performance
+      return updated.slice(0, 20);
+    });
   }, []);
 
   // Power-up functions
@@ -159,7 +167,7 @@ const FlappyBirdGame: React.FC = () => {
 
   const createStars = useCallback((canvasWidth: number, canvasHeight: number) => {
     const newStars: Star[] = [];
-    const starCount = 120; // Increased number of stars for better coverage
+    const starCount = 60; // Reduced for better mobile performance
     
     // Create a grid-based distribution for more uniform coverage
     const gridCols = Math.ceil(Math.sqrt(starCount * (canvasWidth / canvasHeight)));
@@ -346,13 +354,7 @@ const FlappyBirdGame: React.FC = () => {
           setStars(fallbackStars);
         }
         
-        // Tell Farcaster the app is ready after images are loaded (if in Farcaster context)
-        try {
-          await sdk.actions.ready();
-        } catch (err) {
-          // If not in Farcaster context, continue without error
-          console.log('Running in localhost mode - Farcaster SDK not available');
-        }
+        // App ready signal is now handled by the main App component
       } catch (error) {
         console.error('Error loading images:', error);
         // Set images loaded anyway to prevent infinite loading
@@ -363,6 +365,35 @@ const FlappyBirdGame: React.FC = () => {
     loadImages();
     loadLeaderboard();
   }, [loadLeaderboard]);
+
+  // Statistics tracking functions
+  const updateGameStats = useCallback((score: number) => {
+    // Update high score
+    const currentHighScore = parseInt(localStorage.getItem('flappy-dobi-high-score') || '0', 10);
+    if (score > currentHighScore) {
+      localStorage.setItem('flappy-dobi-high-score', score.toString());
+    }
+    
+    // Update games played
+    const gamesPlayed = parseInt(localStorage.getItem('flappy-dobi-games-played') || '0', 10);
+    localStorage.setItem('flappy-dobi-games-played', (gamesPlayed + 1).toString());
+  }, []);
+
+  // Pre-create gradients for performance
+  const createStarGradients = useCallback((ctx: CanvasRenderingContext2D) => {
+    const gradients: { [key: string]: CanvasGradient } = {};
+    
+    // Create a few different star gradients
+    for (let i = 1; i <= 3; i++) {
+      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, i * 2);
+      gradient.addColorStop(0, '#FFFFFF');
+      gradient.addColorStop(0.5, '#00FFFF');
+      gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+      gradients[`star_${i}`] = gradient;
+    }
+    
+    return gradients;
+  }, []);
 
   // Game loop
   const gameLoop = useCallback((currentTime: number) => {
@@ -395,6 +426,7 @@ const FlappyBirdGame: React.FC = () => {
           // Submit score when game ends
           if (prev.score > 0) {
             submitScore(prev.score);
+            updateGameStats(prev.score);
           }
           return newState;
         });
@@ -506,6 +538,7 @@ const FlappyBirdGame: React.FC = () => {
           // Submit score when game ends
           if (prev.score > 0) {
             submitScore(prev.score);
+            updateGameStats(prev.score);
           }
           return newState;
         });
@@ -516,7 +549,7 @@ const FlappyBirdGame: React.FC = () => {
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles, obstaclesEnabled, gameStats.gameStartTime, updateParticles, updatePowerUps, updateStars, checkPowerUpCollision, createParticles, createPowerUp, playGameOverSound, playScoreSound, playCollisionSound, submitScore]);
+  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles, obstaclesEnabled, gameStats.gameStartTime, updateParticles, updatePowerUps, updateStars, checkPowerUpCollision, createParticles, createPowerUp, playGameOverSound, playScoreSound, playCollisionSound, submitScore, updateGameStats]);
 
   // Start game loop
   useEffect(() => {
@@ -571,8 +604,15 @@ const FlappyBirdGame: React.FC = () => {
       setShowCelebration(false);
       setLastScore(0);
       setObstaclesEnabled(false);
+      
+      // Reinitialize stars for restart
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const restartStars = createStars(canvas.width, canvas.height);
+        setStars(restartStars);
+      }
     }
-  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, createParticles, playJumpSound]);
+  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, createParticles, playJumpSound, createStars]);
 
   // Handle keyboard and touch events
   useEffect(() => {
@@ -627,66 +667,43 @@ const FlappyBirdGame: React.FC = () => {
     ctx.fillStyle = skyGradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw moving stars with futuristic effects
-    console.log('Rendering stars:', stars.length);
+    // Draw moving stars with futuristic effects (optimized)
+    ctx.save();
     stars.forEach(star => {
-      ctx.save();
       ctx.globalAlpha = star.opacity;
       
-      // Create gradient for stars
-      const starGradient = ctx.createRadialGradient(
-        star.x, star.y, 0,
-        star.x, star.y, star.size * 2
-      );
-      starGradient.addColorStop(0, '#FFFFFF');
-      starGradient.addColorStop(0.5, '#00FFFF');
-      starGradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+      // Use simple colors instead of complex gradients for better performance
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = '#00FFFF';
+      ctx.shadowBlur = star.size * 1.5;
       
-      // Draw star with gradient
-      ctx.fillStyle = starGradient;
       ctx.beginPath();
       ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
       ctx.fill();
       
-      // Add glow effect for all stars
-      ctx.shadowColor = '#00FFFF';
-      ctx.shadowBlur = star.size * 2;
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, star.size * 0.7, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Add twinkling effect for larger stars
+      // Add twinkling effect for larger stars only
       if (star.size > 1.5) {
         ctx.shadowColor = '#FFFFFF';
-        ctx.shadowBlur = 4;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.shadowBlur = 2;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
         ctx.beginPath();
-        ctx.arc(star.x, star.y, star.size * 0.3, 0, Math.PI * 2);
+        ctx.arc(star.x, star.y, star.size * 0.4, 0, Math.PI * 2);
         ctx.fill();
       }
-      
-      ctx.restore();
     });
+    ctx.restore();
 
     // Invisible ceiling - no visual rendering, only collision detection
 
     // Ground removed - only collision detection remains
 
-    // Draw futuristic pipe obstacles
+    // Draw futuristic pipe obstacles (optimized)
     obstacles.forEach(obstacle => {
       const pipeWidth = OBSTACLE_WIDTH;
       const pipeEndHeight = 40; // Height of the pipe mouth
       
-      // Top obstacle - pipe pointing down
-      // Main pipe body
-      const topPipeGradient = ctx.createLinearGradient(obstacle.x, 0, obstacle.x + pipeWidth, 0);
-      topPipeGradient.addColorStop(0, '#1a1a2e'); // Dark blue
-      topPipeGradient.addColorStop(0.3, '#16213e'); // Medium blue
-      topPipeGradient.addColorStop(0.7, '#0f3460'); // Light blue
-      topPipeGradient.addColorStop(1, '#1a1a2e'); // Dark blue
-      
-      ctx.fillStyle = topPipeGradient;
+      // Top obstacle - pipe pointing down (simplified)
+      ctx.fillStyle = '#1a1a2e'; // Simple solid color instead of gradient
       ctx.fillRect(obstacle.x, 0, pipeWidth, obstacle.topHeight - pipeEndHeight);
       
       // Top pipe mouth (pointing down) - Flappy Bird style with futuristic twist
@@ -697,13 +714,8 @@ const FlappyBirdGame: React.FC = () => {
       const mouthWidth = pipeWidth + 8;
       const mouthX = obstacle.x - 4;
       
-      // Create mouth gradient (darker at top, lighter at bottom)
-      const mouthGradient = ctx.createLinearGradient(mouthX, mouthY, mouthX, mouthY + mouthHeight);
-      mouthGradient.addColorStop(0, '#0f3460'); // Dark blue top
-      mouthGradient.addColorStop(0.5, '#16213e'); // Medium blue middle
-      mouthGradient.addColorStop(1, '#1a1a2e'); // Dark blue bottom
-      
-      ctx.fillStyle = mouthGradient;
+      // Simple mouth color
+      ctx.fillStyle = '#0f3460';
       ctx.fillRect(mouthX, mouthY, mouthWidth, mouthHeight);
       
       // Add mouth rim (like original Flappy Bird)
@@ -734,15 +746,8 @@ const FlappyBirdGame: React.FC = () => {
       ctx.lineTo(mouthX + mouthWidth - 2, mouthY + mouthHeight - 2);
       ctx.stroke();
       
-      // Bottom obstacle - pipe pointing up
-      // Main pipe body
-      const bottomPipeGradient = ctx.createLinearGradient(obstacle.x, obstacle.bottomY, obstacle.x + pipeWidth, obstacle.bottomY);
-      bottomPipeGradient.addColorStop(0, '#1a1a2e'); // Dark blue
-      bottomPipeGradient.addColorStop(0.3, '#16213e'); // Medium blue
-      bottomPipeGradient.addColorStop(0.7, '#0f3460'); // Light blue
-      bottomPipeGradient.addColorStop(1, '#1a1a2e'); // Dark blue
-      
-      ctx.fillStyle = bottomPipeGradient;
+      // Bottom obstacle - pipe pointing up (simplified)
+      ctx.fillStyle = '#1a1a2e';
       ctx.fillRect(obstacle.x, obstacle.bottomY + pipeEndHeight, pipeWidth, canvas.height - obstacle.bottomY - pipeEndHeight);
       
       // Bottom pipe mouth (pointing up) - Flappy Bird style with futuristic twist
@@ -753,13 +758,8 @@ const FlappyBirdGame: React.FC = () => {
       const bottomMouthWidth = pipeWidth + 8;
       const bottomMouthX = obstacle.x - 4;
       
-      // Create mouth gradient (darker at bottom, lighter at top)
-      const bottomMouthGradient = ctx.createLinearGradient(bottomMouthX, bottomMouthY, bottomMouthX, bottomMouthY + bottomMouthHeight);
-      bottomMouthGradient.addColorStop(0, '#1a1a2e'); // Dark blue bottom
-      bottomMouthGradient.addColorStop(0.5, '#16213e'); // Medium blue middle
-      bottomMouthGradient.addColorStop(1, '#0f3460'); // Dark blue top
-      
-      ctx.fillStyle = bottomMouthGradient;
+      // Simple bottom mouth color
+      ctx.fillStyle = '#0f3460';
       ctx.fillRect(bottomMouthX, bottomMouthY, bottomMouthWidth, bottomMouthHeight);
       
       // Add mouth rim (like original Flappy Bird)
@@ -918,14 +918,24 @@ const FlappyBirdGame: React.FC = () => {
     }
   }, [images, backgroundOffset, obstacles, bird, imagesLoaded, powerUps, particles, activePowerUps, stars]);
 
-  // Initialize stars on component mount
+  // Canvas dimensions are now fixed for consistent gameplay
+
+  // Initialize stars when images are loaded and canvas is ready
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const initialStars = createStars(canvas.width, canvas.height);
-      setStars(initialStars);
+    if (imagesLoaded) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        // Use a small delay to ensure canvas is fully rendered
+        const timer = setTimeout(() => {
+          const initialStars = createStars(canvas.width, canvas.height);
+          console.log('Initializing stars with canvas dimensions:', canvas.width, 'x', canvas.height);
+          setStars(initialStars);
+        }, 100);
+        
+        return () => clearTimeout(timer);
+      }
     }
-  }, []);
+  }, [imagesLoaded, createStars]);
 
   // Render on every frame
   useEffect(() => {
@@ -941,8 +951,20 @@ const FlappyBirdGame: React.FC = () => {
   }
 
   return (
-    <div className="relative w-full h-screen bg-gray-900 overflow-hidden">
-      {/* Game Canvas - Optimized for Farcaster Mini Apps */}
+    <div className="relative w-full h-screen bg-gradient-to-b from-gray-900 via-blue-900 to-gray-900 overflow-hidden">
+      {/* Background stars for side areas */}
+      <div className="absolute inset-0 opacity-30">
+        <div className="absolute top-10 left-4 w-1 h-1 bg-cyan-400 rounded-full animate-pulse"></div>
+        <div className="absolute top-20 right-6 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
+        <div className="absolute top-32 left-8 w-1 h-1 bg-cyan-300 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-40 right-12 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '1.5s'}}></div>
+        <div className="absolute top-60 left-6 w-1 h-1 bg-cyan-400 rounded-full animate-pulse" style={{animationDelay: '2s'}}></div>
+        <div className="absolute top-80 right-8 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '2.5s'}}></div>
+        <div className="absolute top-96 left-12 w-1 h-1 bg-cyan-300 rounded-full animate-pulse" style={{animationDelay: '3s'}}></div>
+        <div className="absolute top-64 right-4 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '3.5s'}}></div>
+      </div>
+      
+      {/* Game Canvas - Fixed dimensions for proper scaling */}
       <canvas
         ref={canvasRef}
         width={800}
@@ -954,7 +976,9 @@ const FlappyBirdGame: React.FC = () => {
           userSelect: 'none',
           WebkitUserSelect: 'none',
           MozUserSelect: 'none',
-          msUserSelect: 'none'
+          msUserSelect: 'none',
+          objectFit: 'cover',
+          objectPosition: 'center'
         }}
       />
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
-import { HomeTab, ActionsTab, ContextTab, WalletTab } from "~/components/ui/tabs";
+import { HomeTab, WalletTab } from "~/components/ui/tabs";
 import FlappyBirdGame from "./FlappyBirdGame";
 import { USE_WALLET } from "~/lib/constants";
 import { useNeynarUser } from "../hooks/useNeynarUser";
@@ -13,8 +13,6 @@ import { useNeynarUser } from "../hooks/useNeynarUser";
 export enum Tab {
   Home = "home",
   Game = "game",
-  Actions = "actions",
-  Context = "context",
   Wallet = "wallet",
 }
 
@@ -37,7 +35,7 @@ export interface AppProps {
  * experience with multiple tabs for different functionality areas.
  * 
  * Features:
- * - Tab-based navigation (Home, Actions, Context, Wallet)
+ * - Tab-based navigation (Home, Game, Wallet)
  * - Farcaster mini app integration
  * - Wallet connection management
  * - Error handling and display
@@ -105,6 +103,8 @@ export default function App(
     }
   }, [isSDKLoaded]);
 
+  // sdk.actions.ready() is now handled in the main app.tsx file
+
   // Always use local state for tab management to avoid network issues
   const activeTab = currentTab;
   const setActiveTab = setCurrentTab;
@@ -112,10 +112,11 @@ export default function App(
   // --- Early Returns ---
   if (!isSDKLoaded) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen bg-gray-900">
         <div className="text-center">
-          <div className="spinner h-8 w-8 mx-auto mb-4"></div>
-          <p>Loading SDK...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+          <p className="text-white text-lg">Cargando Flappy DOBI...</p>
+          <p className="text-gray-400 text-sm mt-2">Preparando el juego espacial</p>
         </div>
       </div>
     );
@@ -142,8 +143,6 @@ export default function App(
         {/* Tab content rendering */}
         {activeTab === Tab.Home && <HomeTab />}
         {activeTab === Tab.Game && <FlappyBirdGame />}
-        {activeTab === Tab.Actions && <ActionsTab />}
-        {activeTab === Tab.Context && <ContextTab />}
         {activeTab === Tab.Wallet && <WalletTab />}
 
         {/* Footer with navigation */}

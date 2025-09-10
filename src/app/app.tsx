@@ -14,8 +14,20 @@ export default function App(
   { title }: { title?: string } = { title: APP_NAME }
 ) {
   useEffect(() => {
-    // tell Warpcast the app is ready
-    sdk.actions.ready();
+    // Call ready() after the component is mounted and DOM is ready
+    const initializeApp = async () => {
+      // Wait for the next tick to ensure DOM is ready
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      try {
+        await sdk.actions.ready();
+        console.log('Farcaster Mini App is ready - DOM loaded');
+      } catch (err) {
+        console.log('Running in localhost mode - Farcaster SDK not available');
+      }
+    };
+    
+    initializeApp();
   }, []);
 
   return <AppComponent title={title} />;

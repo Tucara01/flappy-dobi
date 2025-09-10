@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import App from "./app";
 import { APP_NAME, APP_DESCRIPTION, APP_OG_IMAGE_URL } from "~/lib/constants";
 import { getMiniAppEmbedMetadata } from "~/lib/utils";
+import { sdk } from "@farcaster/miniapp-sdk";
 
 export const revalidate = 300;
 
@@ -20,5 +21,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function Home() {
+  // Call ready() as soon as the page loads
+  if (typeof window !== 'undefined') {
+    sdk.actions.ready().catch(() => {
+      console.log('Running in localhost mode - Farcaster SDK not available');
+    });
+  }
+  
   return (<App />);
 }
