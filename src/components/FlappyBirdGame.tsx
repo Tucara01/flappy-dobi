@@ -14,6 +14,9 @@ interface GameState {
   isGameOver: boolean;
   score: number;
   highScore: number;
+  gameId?: number;
+  canClaimReward: boolean;
+  hasWon: boolean;
 }
 
 interface Bird {
@@ -74,7 +77,9 @@ const FlappyBirdGame: React.FC = () => {
     isPlaying: false,
     isGameOver: false,
     score: 0,
-    highScore: 0
+    highScore: 0,
+    canClaimReward: false,
+    hasWon: false
   });
 
   // Game objects
@@ -379,6 +384,81 @@ const FlappyBirdGame: React.FC = () => {
     localStorage.setItem('flappy-dobi-games-played', (gamesPlayed + 1).toString());
   }, []);
 
+  // Game reward system functions
+  const createGame = useCallback(async () => {
+    try {
+      const playerAddress = '0x1234567890123456789012345678901234567890'; // Mock address for testing
+      console.log('Creating game for player:', playerAddress);
+      
+      const response = await fetch('/api/games', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ player: playerAddress }),
+      });
+
+      console.log('Game creation response:', response.status, response.ok);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Game created successfully:', data);
+        setGameState(prev => ({ ...prev, gameId: data.gameId }));
+        return data.gameId;
+      } else {
+        const errorData = await response.json();
+        console.error('Game creation failed:', errorData);
+      }
+    } catch (error) {
+      console.error('Error creating game:', error);
+    }
+    return null;
+  }, []);
+
+  const updateGameScore = useCallback(async (gameId: number, score: number) => {
+    try {
+      await fetch('/api/games', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ gameId, score }),
+      });
+    } catch (error) {
+      console.error('Error updating game score:', error);
+    }
+  }, []);
+
+  const claimReward = useCallback(async () => {
+    if (!gameState.gameId) return;
+
+    try {
+      const playerAddress = '0x1234567890123456789012345678901234567890'; // Mock address for testing
+      const response = await fetch('/api/games/claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          gameId: gameState.gameId, 
+          player: playerAddress 
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(`¡Premio reclamado! Recompensa: ${data.rewardAmount / 1e6} USDC`);
+        setGameState(prev => ({ ...prev, canClaimReward: false }));
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error claiming reward:', error);
+      alert('Error al reclamar premio');
+    }
+  }, [gameState.gameId]);
+
   // Pre-create gradients for performance
   const createStarGradients = useCallback((ctx: CanvasRenderingContext2D) => {
     const gradients: { [key: string]: CanvasGradient } = {};
@@ -478,6 +558,39 @@ const FlappyBirdGame: React.FC = () => {
               setLastScore(newScore);
               // Removed celebration splash effect
             }
+
+            // Check if player reached 50 points
+            if (newScore >= 50 && !prev.hasWon) {
+              // Player won! Mark game as won and stop the game
+              setGameState(prevState => ({
+                ...prevState,
+                hasWon: true,
+                canClaimReward: true,
+                isGameOver: true,
+                isPlaying: false // Stop the game
+              }));
+
+              // Update game status to won
+              if (prev.gameId) {
+                updateGameScore(prev.gameId, newScore);
+                fetch('/api/games', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ gameId: prev.gameId, status: 'won' })
+                });
+              }
+
+              // Show celebration
+              setShowCelebration(true);
+              setTimeout(() => setShowCelebration(false), 3000);
+              
+              // Stop the game loop
+              if (gameLoopRef.current) {
+                cancelAnimationFrame(gameLoopRef.current);
+                gameLoopRef.current = undefined;
+              }
+            }
+
             return { ...prev, score: newScore };
           });
           
@@ -566,12 +679,22 @@ const FlappyBirdGame: React.FC = () => {
   }, [gameState.isPlaying, gameState.isGameOver, gameLoop]);
 
   // Handle jump
-  const handleJump = useCallback(() => {
+  const handleJump = useCallback(async () => {
     if (!gameState.isPlaying) {
-      setGameState(prev => ({ ...prev, isPlaying: true }));
+      // Create a new game when starting
+      const gameId = await createGame();
+      
+      setGameState(prev => ({ 
+        ...prev, 
+        isPlaying: true,
+        isGameOver: false,
+        score: 0,
+        hasWon: false,
+        canClaimReward: false,
+        gameId
+      }));
       setBird(prev => ({ ...prev, y: 300, velocity: 0, rotation: 0 })); // 2x
       setObstacles([]);
-      setGameState(prev => ({ ...prev, score: 0 }));
       setParticles([]);
       setPowerUps([]);
       setActivePowerUps({});
@@ -1095,6 +1218,7 @@ const FlappyBirdGame: React.FC = () => {
           y={100} 
           count={30} 
         />
+        
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
-import { HomeTab, WalletTab } from "~/components/ui/tabs";
+import { HomeTab, WalletTab, ClaimTab } from "~/components/ui/tabs";
 import FlappyBirdGame from "./FlappyBirdGame";
 import { USE_WALLET } from "~/lib/constants";
 import { useNeynarUser } from "../hooks/useNeynarUser";
@@ -14,6 +14,7 @@ export enum Tab {
   Home = "home",
   Game = "game",
   Wallet = "wallet",
+  Claim = "claim",
 }
 
 export interface AppProps {
@@ -144,6 +145,7 @@ export default function App(
         {activeTab === Tab.Home && <HomeTab />}
         {activeTab === Tab.Game && <FlappyBirdGame />}
         {activeTab === Tab.Wallet && <WalletTab />}
+        {activeTab === Tab.Claim && <ClaimTab />}
 
         {/* Footer with navigation */}
         <Footer activeTab={activeTab as Tab} setActiveTab={setActiveTab} showWallet={USE_WALLET} />
