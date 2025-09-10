@@ -5,14 +5,12 @@ import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
 import { HomeTab, WalletTab, ClaimTab } from "~/components/ui/tabs";
-import FlappyBirdGame from "./FlappyBirdGame";
 import { USE_WALLET } from "~/lib/constants";
 import { useNeynarUser } from "../hooks/useNeynarUser";
 
 // --- Types ---
 export enum Tab {
   Home = "home",
-  Game = "game",
   Wallet = "wallet",
   Claim = "claim",
 }
@@ -142,8 +140,7 @@ export default function App(
         <h1 className="text-2xl font-bold text-center mb-4">{title}</h1>
 
         {/* Tab content rendering */}
-        {activeTab === Tab.Home && <HomeTab />}
-        {activeTab === Tab.Game && <FlappyBirdGame />}
+        {activeTab === Tab.Home && <HomeTab setActiveTab={setActiveTab} />}
         {activeTab === Tab.Wallet && <WalletTab />}
         {activeTab === Tab.Claim && <ClaimTab />}
 

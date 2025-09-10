@@ -1,14 +1,36 @@
 import { NextResponse } from 'next/server';
 import { gameDatabase } from '~/lib/gameDatabase';
+import { createSecurityMiddleware } from '~/lib/security';
 
 export async function POST(request: Request) {
   try {
-    const { gameId, player } = await request.json();
+    // Aplicar middleware de seguridad
+    const securityMiddleware = createSecurityMiddleware();
+    const securityResult = await securityMiddleware(request, { 
+      ip: request.headers.get('x-forwarded-for') || 'unknown' 
+    });
+
+    if ('error' in securityResult) {
+      return NextResponse.json(
+        { error: securityResult.error },
+        { status: securityResult.status }
+      );
+    }
+
+    const { gameId, player } = securityResult.body || {};
 
     if (!gameId || !player) {
       return NextResponse.json(
         { error: 'Game ID y player address son requeridos' },
         { status: 400 }
+      );
+    }
+
+    // Verificar que el player coincida con la sesión
+    if (securityResult.session && securityResult.session.playerAddress !== player) {
+      return NextResponse.json(
+        { error: 'Player address does not match session' },
+        { status: 403 }
       );
     }
 
@@ -18,6 +40,14 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Juego no encontrado' },
         { status: 404 }
+      );
+    }
+
+    // Verificar que es un juego de bet mode
+    if (game.mode !== 'bet') {
+      return NextResponse.json(
+        { error: 'Solo se pueden reclamar premios de juegos en modo bet' },
+        { status: 400 }
       );
     }
 
@@ -84,10 +114,10 @@ export async function GET(request: Request) {
   const player = searchParams.get('player');
 
   if (player) {
-    // Obtener los últimos 10 juegos del jugador
-    const recentGames = gameDatabase.getPlayerGames(player, 10);
+    // Obtener los últimos 10 juegos de bet mode del jugador
+    const recentGames = gameDatabase.getPlayerGamesByMode(player, 'bet', 10);
     
-    // Obtener juegos reclamables
+    // Obtener juegos reclamables (solo bet mode)
     const claimableGames = gameDatabase.getClaimableGames(player);
     
     return NextResponse.json({ 

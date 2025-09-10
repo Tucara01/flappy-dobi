@@ -356,7 +356,7 @@ export function WalletTab() {
       )}
 
       {/* Solana Wallet Components */}
-      {solanaPublicKey && (
+      {solanaPublicKey && solanaWallet && (
         <>
           <SignSolanaMessage signMessage={solanaWallet.signMessage} />
           <SendSolana />

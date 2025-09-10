@@ -8,6 +8,7 @@ import ParticleEffect from './ui/ParticleEffect';
 import Leaderboard from './ui/Leaderboard';
 import { useSound } from '../hooks/useSound';
 import { useLeaderboard } from '../hooks/useLeaderboard';
+import { gameAPI, initializeGameSession, isSessionActive } from '../lib/gameClient';
 
 interface GameState {
   isPlaying: boolean;
@@ -60,7 +61,13 @@ interface Star {
   opacity: number;
 }
 
-const FlappyBirdGame: React.FC = () => {
+interface FlappyBirdGameProps {
+  gameMode?: 'practice' | 'bet';
+  onBackToHome?: () => void;
+  playerAddress?: string;
+}
+
+const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBackToHome, playerAddress }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
@@ -114,7 +121,7 @@ const FlappyBirdGame: React.FC = () => {
   const GRAVITY = 0.15;
   const JUMP_FORCE = -5;
   const OBSTACLE_SPEED = 4; // 2x
-  const OBSTACLE_GAP = 300; // 1.5x - Reduced gap between obstacles for more difficulty
+  const OBSTACLE_GAP = 320; // Slightly more challenging gap - less reaction time than before
   const OBSTACLE_WIDTH = 120; // 2x
   const BIRD_SIZE = 80; // 2.67x - Hitbox size (for collisions) - Made bigger
   const BIRD_DISPLAY_SIZE = 160; // 2.67x - Visual size (for rendering) - Made bigger
@@ -385,29 +392,35 @@ const FlappyBirdGame: React.FC = () => {
   }, []);
 
   // Game reward system functions
-  const createGame = useCallback(async () => {
+  const createGame = useCallback(async (mode: 'practice' | 'bet' = 'bet') => {
     try {
-      const playerAddress = '0x1234567890123456789012345678901234567890'; // Mock address for testing
-      console.log('Creating game for player:', playerAddress);
+      const address = playerAddress || '0x0000000000000000000000000000000000000000';
+      console.log('Creating game for player:', address, 'mode:', mode);
       
-      const response = await fetch('/api/games', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ player: playerAddress }),
-      });
-
-      console.log('Game creation response:', response.status, response.ok);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Game created successfully:', data);
-        setGameState(prev => ({ ...prev, gameId: data.gameId }));
-        return data.gameId;
+      // Inicializar sesión si no existe
+      if (!isSessionActive()) {
+        const sessionResult = await initializeGameSession(address);
+        if (!sessionResult.success) {
+          console.error('Failed to initialize game session:', sessionResult.error);
+          return null;
+        }
+      }
+      
+      // Crear juego usando el cliente seguro
+      const result = await gameAPI.createGame(address, mode);
+      
+      if (result.success && result.data) {
+        // Type guard to ensure data has the expected structure
+        const gameData = result.data as { gameId: number };
+        if (typeof gameData === 'object' && gameData !== null && typeof gameData.gameId === 'number') {
+          console.log('Game created successfully:', gameData);
+          setGameState(prev => ({ ...prev, gameId: gameData.gameId }));
+          return gameData.gameId;
+        } else {
+          console.error('Invalid game data structure:', gameData);
+        }
       } else {
-        const errorData = await response.json();
-        console.error('Game creation failed:', errorData);
+        console.error('Game creation failed:', result.error);
       }
     } catch (error) {
       console.error('Error creating game:', error);
@@ -417,13 +430,10 @@ const FlappyBirdGame: React.FC = () => {
 
   const updateGameScore = useCallback(async (gameId: number, score: number) => {
     try {
-      await fetch('/api/games', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ gameId, score }),
-      });
+      const result = await gameAPI.updateGameScore(gameId, score);
+      if (!result.success) {
+        console.error('Error updating game score:', result.error);
+      }
     } catch (error) {
       console.error('Error updating game score:', error);
     }
@@ -433,25 +443,21 @@ const FlappyBirdGame: React.FC = () => {
     if (!gameState.gameId) return;
 
     try {
-      const playerAddress = '0x1234567890123456789012345678901234567890'; // Mock address for testing
-      const response = await fetch('/api/games/claim', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          gameId: gameState.gameId, 
-          player: playerAddress 
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        alert(`¡Premio reclamado! Recompensa: ${data.rewardAmount / 1e6} USDC`);
-        setGameState(prev => ({ ...prev, canClaimReward: false }));
+      const address = playerAddress || '0x0000000000000000000000000000000000000000';
+      const result = await gameAPI.claimReward(gameState.gameId, address);
+      
+      if (result.success && result.data) {
+        // Type guard to ensure data has the expected structure
+        const claimData = result.data as { rewardAmount: number };
+        if (typeof claimData === 'object' && claimData !== null && typeof claimData.rewardAmount === 'number') {
+          alert(`¡Premio reclamado! Recompensa: ${claimData.rewardAmount / 1e6} USDC`);
+          setGameState(prev => ({ ...prev, canClaimReward: false }));
+        } else {
+          console.error('Invalid claim data structure:', claimData);
+          alert('Error: Datos de recompensa inválidos');
+        }
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.error}`);
+        alert(`Error: ${result.error}`);
       }
     } catch (error) {
       console.error('Error claiming reward:', error);
@@ -531,11 +537,11 @@ const FlappyBirdGame: React.FC = () => {
         x: obstacle.x - OBSTACLE_SPEED
       })).filter(obstacle => obstacle.x > -OBSTACLE_WIDTH);
 
-      // Add new obstacles only after 2 seconds
-      if (obstaclesEnabled && (newObstacles.length === 0 || newObstacles[newObstacles.length - 1].x < 400)) { // 2x
+      // Add new obstacles with slightly more challenging spacing
+      if (obstaclesEnabled && (newObstacles.length === 0 || newObstacles[newObstacles.length - 1].x < 350)) { // Slightly more challenging threshold
         const topHeight = Math.random() * 400 + 200; // 2x
         newObstacles.push({
-          x: 800, // 2x
+          x: 850, // Slightly more challenging spawn distance - less time to react
           topHeight,
           bottomY: topHeight + OBSTACLE_GAP,
           passed: false
@@ -543,7 +549,7 @@ const FlappyBirdGame: React.FC = () => {
 
         // Occasionally add power-ups
         if (Math.random() < 0.3) {
-          createPowerUp(800, topHeight + OBSTACLE_GAP / 2); // 2x
+          createPowerUp(850, topHeight + OBSTACLE_GAP / 2); // Updated to match obstacle position
         }
       }
 
@@ -681,8 +687,8 @@ const FlappyBirdGame: React.FC = () => {
   // Handle jump
   const handleJump = useCallback(async () => {
     if (!gameState.isPlaying) {
-      // Create a new game when starting
-      const gameId = await createGame();
+      // Create a new game when starting with the correct mode
+      const gameId = await createGame(gameMode);
       
       setGameState(prev => ({ 
         ...prev, 
@@ -691,7 +697,7 @@ const FlappyBirdGame: React.FC = () => {
         score: 0,
         hasWon: false,
         canClaimReward: false,
-        gameId
+        gameId: gameId || undefined
       }));
       setBird(prev => ({ ...prev, y: 300, velocity: 0, rotation: 0 })); // 2x
       setObstacles([]);
@@ -735,7 +741,7 @@ const FlappyBirdGame: React.FC = () => {
         setStars(restartStars);
       }
     }
-  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, createParticles, playJumpSound, createStars]);
+  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, createParticles, playJumpSound, createStars, gameMode, createGame]);
 
   // Handle keyboard and touch events
   useEffect(() => {
@@ -1141,10 +1147,17 @@ const FlappyBirdGame: React.FC = () => {
                   {showLeaderboard ? 'HIDE' : 'LEADERBOARD'}
                 </button>
                 <button
-                  onClick={() => shareScore(gameState.score)}
+                  onClick={() => {
+                    // Go back to home tab
+                    if (onBackToHome) {
+                      onBackToHome();
+                    } else {
+                      window.location.reload();
+                    }
+                  }}
                   className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] hover:shadow-[0_0_25px_rgba(168,85,247,0.8)] border border-purple-400"
                 >
-                  SHARE
+                  HOME
                 </button>
               </div>
             </AnimatedText>

@@ -2,29 +2,146 @@
 
 import { useState, useEffect } from "react";
 import { useLeaderboard } from "../../../hooks/useLeaderboard";
+import { useAccount } from "wagmi";
+import { Tab } from "../../App";
+import FlappyBirdGame from "../../FlappyBirdGame";
+import { gameAPI, initializeGameSession, isSessionActive } from "../../../lib/gameClient";
+
+interface HomeTabProps {
+  setActiveTab: (tab: Tab) => void;
+}
+
+interface GameStats {
+  totalGames: number;
+  bestScore: number;
+  gamesWon: number;
+  totalScore: number;
+}
+
+interface StatsResponse {
+  success: boolean;
+  data?: {
+    stats: GameStats;
+  };
+  error?: string;
+}
 
 /**
  * HomeTab component displays the main landing content for the Flappy DOBI game.
  * 
  * This is the default tab that users see when they first open the mini app.
- * It provides game information, leaderboard preview, and quick access to play.
+ * It provides game mode selection, leaderboard preview, and quick access to play.
  * 
  * @example
  * ```tsx
- * <HomeTab />
+ * <HomeTab setActiveTab={setActiveTab} />
  * ```
  */
-export function HomeTab() {
+export function HomeTab({ setActiveTab }: HomeTabProps) {
   const { leaderboard, isLoading } = useLeaderboard();
-  const [highScore, setHighScore] = useState(0);
+  const [gameStats, setGameStats] = useState<GameStats>({
+    totalGames: 0,
+    bestScore: 0,
+    gamesWon: 0,
+    totalScore: 0
+  });
+  const { address, isConnected } = useAccount();
+  const [gameMode, setGameMode] = useState<'home' | 'practice' | 'bet'>('home');
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
 
-  // Get high score from localStorage
+  // Get combined stats from API
   useEffect(() => {
-    const savedHighScore = localStorage.getItem('flappy-dobi-high-score');
-    if (savedHighScore) {
-      setHighScore(parseInt(savedHighScore, 10));
+    const fetchStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        // Use real wallet address if connected, otherwise use a fallback
+        const playerAddress = address || '0x0000000000000000000000000000000000000000';
+        
+        // Inicializar sesión si no existe
+        if (!isSessionActive()) {
+          const sessionResult = await initializeGameSession(playerAddress);
+          if (!sessionResult.success) {
+            console.error('Failed to initialize game session:', sessionResult.error);
+            return;
+          }
+        }
+        
+        const result = await gameAPI.getPlayerStats(playerAddress) as StatsResponse;
+        
+        if (result.success && result.data && result.data.stats) {
+          setGameStats(result.data.stats);
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setIsLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+  }, [address]); // Re-fetch stats when wallet address changes
+
+  // Function to execute bet mode smart contract
+  const executeBetMode = async () => {
+    if (!isConnected || !address) {
+      alert('Please connect your wallet to use bet mode');
+      return;
     }
-  }, []);
+
+    try {
+      // Initialize game session with real wallet address
+      if (!isSessionActive()) {
+        const sessionResult = await initializeGameSession(address);
+        if (!sessionResult.success) {
+          console.error('Failed to initialize game session:', sessionResult.error);
+          alert('Failed to initialize game session. Please try again.');
+          return;
+        }
+      }
+
+      // Here you would implement the smart contract interaction
+      // For now, we'll show an alert and navigate to game
+      alert('Bet mode activated! Smart contract will be executed...');
+      
+      // Start bet mode
+      setGameMode('bet');
+      
+      // TODO: Implement actual smart contract call
+      // Example:
+      // const contract = new ethers.Contract(contractAddress, abi, signer);
+      // const tx = await contract.startBetGame({ value: ethers.utils.parseEther("0.01") });
+      // await tx.wait();
+      
+    } catch (error) {
+      console.error('Error executing bet mode:', error);
+      alert('Error executing bet mode. Please try again.');
+    }
+  };
+
+  // Show game when a mode is selected
+  if (gameMode === 'practice' || gameMode === 'bet') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => setGameMode('home')}
+            className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <span className="text-xl">←</span>
+            <span>Back to Home</span>
+          </button>
+          <div className="text-sm text-gray-400">
+            {gameMode === 'practice' ? 'Practice Mode' : 'Bet Mode'}
+          </div>
+        </div>
+        <FlappyBirdGame 
+          gameMode={gameMode} 
+          onBackToHome={() => setGameMode('home')} 
+          playerAddress={address}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 px-4">
@@ -32,38 +149,63 @@ export function HomeTab() {
       <div className="text-center space-y-4">
         <div className="relative">
           <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-            ¡Bienvenido a Flappy DOBI!
+            Welcome to Flappy DOBI!
           </h2>
           <div className="absolute -top-2 -right-2 text-2xl">🐕</div>
         </div>
         <p className="text-gray-300 text-lg">
-          Ayuda a DOBI a volar por el espacio evitando obstáculos
+          Help DOBI fly through space avoiding obstacles
         </p>
       </div>
 
-      {/* Game Preview Card */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-white">Juego</h3>
-          <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-sm text-gray-300">Disponible</span>
-          </div>
-        </div>
+      {/* Game Mode Selection */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-semibold text-white text-center">Select your game mode</h3>
         
-        <div className="space-y-4">
-          <div className="bg-gray-700 rounded-lg p-4 text-center">
-            <div className="text-6xl mb-2">🚀</div>
-            <p className="text-gray-300 mb-3">
-              Toca para saltar y evita los obstáculos espaciales
-            </p>
-            <div className="flex justify-center space-x-4 text-sm text-gray-400">
-              <span>• Gráficos futuristas</span>
-              <span>• Efectos de partículas</span>
-              <span>• Sistema de puntuación</span>
+        {/* Practice Mode Button */}
+        <button 
+          onClick={async () => {
+            // Initialize session for practice mode if wallet is connected
+            if (address && !isSessionActive()) {
+              try {
+                const sessionResult = await initializeGameSession(address);
+                if (!sessionResult.success) {
+                  console.error('Failed to initialize game session:', sessionResult.error);
+                }
+              } catch (error) {
+                console.error('Error initializing session for practice mode:', error);
+              }
+            }
+            // Start practice mode
+            setGameMode('practice');
+          }}
+          className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+        >
+          <div className="flex items-center justify-center space-x-3">
+            <span className="text-2xl">🎯</span>
+            <div className="text-left">
+              <div className="text-lg font-semibold">Practice Mode</div>
+              <div className="text-sm opacity-90">Infinite game without bets</div>
             </div>
           </div>
-        </div>
+        </button>
+
+        {/* Bet Mode Button */}
+        <button 
+          onClick={() => {
+            // Execute smart contract for bet mode
+            executeBetMode();
+          }}
+          className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
+        >
+          <div className="flex items-center justify-center space-x-3">
+            <span className="text-2xl">💰</span>
+            <div className="text-left">
+              <div className="text-lg font-semibold">Bet Mode</div>
+              <div className="text-sm opacity-90">Play with bets and win rewards</div>
+            </div>
+          </div>
+        </button>
       </div>
 
       {/* Stats Section */}
@@ -71,17 +213,19 @@ export function HomeTab() {
         {/* High Score */}
         <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl p-4 text-center">
           <div className="text-2xl mb-1">🏆</div>
-          <div className="text-2xl font-bold text-white">{highScore}</div>
-          <div className="text-sm text-purple-200">Mejor Puntuación</div>
+          <div className="text-2xl font-bold text-white">
+            {isLoadingStats ? '...' : gameStats.bestScore}
+          </div>
+          <div className="text-sm text-purple-200">Best Score</div>
         </div>
 
         {/* Games Played */}
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl p-4 text-center">
           <div className="text-2xl mb-1">🎮</div>
           <div className="text-2xl font-bold text-white">
-            {localStorage.getItem('flappy-dobi-games-played') || '0'}
+            {isLoadingStats ? '...' : gameStats.totalGames}
           </div>
-          <div className="text-sm text-blue-200">Partidas Jugadas</div>
+          <div className="text-sm text-blue-200">Total Games</div>
         </div>
       </div>
 
@@ -90,7 +234,7 @@ export function HomeTab() {
         <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 border border-gray-700">
           <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
             <span className="mr-2">🏅</span>
-            Top Jugadores
+            Top Players
           </h3>
           
           <div className="space-y-2">
@@ -106,7 +250,7 @@ export function HomeTab() {
                   </div>
                   <div>
                     <div className="text-white font-medium">
-                      {entry.displayName || `Usuario ${entry.fid}`}
+                      {entry.displayName || `User ${entry.fid}`}
                     </div>
                     <div className="text-xs text-gray-400">
                       {entry.username ? `@${entry.username}` : ''}
@@ -123,7 +267,7 @@ export function HomeTab() {
           {leaderboard.entries.length > 3 && (
             <div className="text-center mt-3">
               <span className="text-sm text-gray-400">
-                Y {leaderboard.entries.length - 3} jugadores más...
+                And {leaderboard.entries.length - 3} more players...
               </span>
             </div>
           )}
@@ -133,7 +277,7 @@ export function HomeTab() {
       {/* Quick Actions */}
       <div className="text-center space-y-3">
         <p className="text-gray-400 text-sm">
-          Desliza hacia la derecha para ver más opciones
+          Swipe right to see more options
         </p>
         <div className="flex justify-center space-x-2">
           <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>

@@ -1,6 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAccount } from "wagmi";
+import { 
+  gameAPI, 
+  initializeGameSession, 
+  isSessionActive,
+  type Game,
+  type ClaimableGamesResponse,
+  type ClaimRewardResponse
+} from "../../../lib/gameClient";
 
 interface GameState {
   gameId?: number;
@@ -9,14 +18,6 @@ interface GameState {
   score: number;
 }
 
-interface Game {
-  id: number;
-  player: string;
-  status: string;
-  score: number;
-  createdAt: number;
-  claimedAt?: number;
-}
 
 /**
  * ClaimTab component handles reward claiming functionality.
@@ -30,6 +31,7 @@ interface Game {
  * ```
  */
 export function ClaimTab() {
+  const { address } = useAccount();
   const [gameState, setGameState] = useState<GameState>({
     canClaimReward: false,
     hasWon: false,
@@ -43,24 +45,31 @@ export function ClaimTab() {
   // Check for claimable games on component mount
   useEffect(() => {
     checkClaimableGames();
-  }, []);
+  }, [address]); // Re-check when wallet address changes
 
   const checkClaimableGames = async () => {
     setIsLoading(true);
     try {
-      const playerAddress = '0x1234567890123456789012345678901234567890'; // Mock address for testing
+      const playerAddress = address || '0x0000000000000000000000000000000000000000';
       console.log('Checking claimable games for player:', playerAddress);
       
-      const response = await fetch(`/api/games/claim?player=${playerAddress}`);
-      console.log('Claim games response:', response.status, response.ok);
+      // Inicializar sesión si no existe
+      if (!isSessionActive()) {
+        const sessionResult = await initializeGameSession(playerAddress);
+        if (!sessionResult.success) {
+          console.error('Failed to initialize game session:', sessionResult.error);
+          return;
+        }
+      }
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Claim games data:', data);
-        setRecentGames(data.recentGames || []);
-        setClaimableGames(data.claimableGames || []);
+      const result = await gameAPI.getClaimableGames(playerAddress);
+      console.log('Claim games result:', result);
+      
+      if (result.success && result.data) {
+        setRecentGames(result.data.recentGames || []);
+        setClaimableGames(result.data.claimableGames || []);
         
-        if (data.claimableGames && data.claimableGames.length > 0) {
+        if (result.data.claimableGames && result.data.claimableGames.length > 0) {
           setGameState(prev => ({
             ...prev,
             canClaimReward: true,
@@ -68,8 +77,7 @@ export function ClaimTab() {
           }));
         }
       } else {
-        const errorData = await response.json();
-        console.error('Claim games failed:', errorData);
+        console.error('Claim games failed:', result.error);
       }
     } catch (error) {
       console.error('Error checking claimable games:', error);
@@ -83,27 +91,16 @@ export function ClaimTab() {
     setClaimMessage("");
     
     try {
-      const playerAddress = '0x1234567890123456789012345678901234567890'; // Mock address for testing
-      const response = await fetch('/api/games/claim', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          gameId, 
-          player: playerAddress 
-        }),
-      });
+      const playerAddress = address || '0x0000000000000000000000000000000000000000';
+      const result = await gameAPI.claimReward(gameId, playerAddress);
 
-      if (response.ok) {
-        const data = await response.json();
-        setClaimMessage(`Success! Claimed ${data.rewardAmount / 1e6} USDC`);
+      if (result.success && result.data) {
+        setClaimMessage(`Success! Claimed ${result.data.rewardAmount / 1e6} USDC`);
         
         // Refresh claimable games
         await checkClaimableGames();
       } else {
-        const error = await response.json();
-        setClaimMessage(`Error: ${error.error}`);
+        setClaimMessage(`Error: ${result.error}`);
       }
     } catch (error) {
       console.error('Error claiming reward:', error);
@@ -117,24 +114,25 @@ export function ClaimTab() {
     <div className="space-y-6 px-4">
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white mb-2">Claim Rewards</h2>
-        <p className="text-gray-300">Check and claim your game rewards</p>
+        <p className="text-gray-300">Check and claim your bet mode rewards</p>
+        <p className="text-gray-400 text-sm mb-2">Only bet mode games are eligible for rewards</p>
         <button
           onClick={checkClaimableGames}
           disabled={isLoading}
           className="mt-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
         >
-          {isLoading ? 'Loading...' : 'Refresh Games'}
+          {isLoading ? 'Loading...' : 'Refresh Bet Games'}
         </button>
       </div>
 
       {/* Statistics Summary */}
       {recentGames.length > 0 && (
         <div className="bg-gray-800 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Your Stats</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Bet Mode Stats</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
               <p className="text-2xl font-bold text-blue-400">{recentGames.length}</p>
-              <p className="text-gray-300 text-sm">Total Games</p>
+              <p className="text-gray-300 text-sm">Bet Games</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-green-400">{claimableGames.length}</p>
@@ -144,13 +142,13 @@ export function ClaimTab() {
               <p className="text-2xl font-bold text-yellow-400">
                 {recentGames.filter(g => g.status === 'won').length}
               </p>
-              <p className="text-gray-300 text-sm">Games Won</p>
+              <p className="text-gray-300 text-sm">Bet Games Won</p>
             </div>
             <div className="text-center">
               <p className="text-2xl font-bold text-purple-400">
                 {Math.max(...recentGames.map(g => g.score), 0)}
               </p>
-              <p className="text-gray-300 text-sm">Best Score</p>
+              <p className="text-gray-300 text-sm">Best Bet Score</p>
             </div>
           </div>
         </div>
@@ -158,7 +156,7 @@ export function ClaimTab() {
 
       {/* Recent Games */}
       <div className="bg-gray-800 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Last 10 Games</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">Last 10 Bet Games</h3>
         
         {isLoading ? (
           <div className="text-center py-4">
@@ -215,8 +213,8 @@ export function ClaimTab() {
           </div>
         ) : (
           <div className="text-center py-4">
-            <p className="text-gray-400">No games found</p>
-            <p className="text-gray-500 text-sm mt-1">Play some games to see your history!</p>
+            <p className="text-gray-400">No bet games found</p>
+            <p className="text-gray-500 text-sm mt-1">Play some bet mode games to see your history!</p>
           </div>
         )}
 
@@ -238,15 +236,19 @@ export function ClaimTab() {
         <ul className="space-y-2 text-gray-300 text-sm">
           <li className="flex items-start space-x-2">
             <span className="text-blue-400">•</span>
-            <span>Play the Flappy DOBI game</span>
+            <span>Play the Flappy DOBI game in <strong>Bet Mode</strong></span>
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-blue-400">•</span>
-            <span>Reach 50 points in a single game</span>
+            <span>Reach 50 points in a single bet game</span>
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-blue-400">•</span>
             <span>Come back to this tab to claim your 2 USDC reward</span>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="text-yellow-400">•</span>
+            <span><strong>Note:</strong> Practice mode games don't earn rewards</span>
           </li>
         </ul>
       </div>

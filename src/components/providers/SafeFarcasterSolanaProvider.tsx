@@ -47,20 +47,29 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
     let errorShown = false;
     const origError = console.error;
     console.error = (...args) => {
-      if (
-        typeof args[0] === "string" &&
-        args[0].includes("WalletConnectionError: could not get Solana provider")
-      ) {
-        if (!errorShown) {
-          origError(...args);
-          errorShown = true;
+      try {
+        if (
+          typeof args[0] === "string" &&
+          args[0].includes("WalletConnectionError: could not get Solana provider")
+        ) {
+          if (!errorShown) {
+            origError(...args);
+            errorShown = true;
+          }
+          return;
         }
-        return;
+        origError(...args);
+      } catch (error) {
+        // If there's an error in error handling, just ignore it
+        // This prevents the error handler from breaking the app
       }
-      origError(...args);
     };
     return () => {
-      console.error = origError;
+      try {
+        console.error = origError;
+      } catch (error) {
+        // Ignore cleanup errors
+      }
     };
   }, []);
 
