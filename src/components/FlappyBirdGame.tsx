@@ -6,10 +6,8 @@ import NumberDisplay from './ui/NumberDisplay';
 import AnimatedText from './ui/AnimatedText';
 import ParticleEffect from './ui/ParticleEffect';
 import Leaderboard from './ui/Leaderboard';
-import Achievements from './ui/Achievements';
 import { useSound } from '../hooks/useSound';
 import { useLeaderboard } from '../hooks/useLeaderboard';
-import { useAchievements } from '../hooks/useAchievements';
 
 interface GameState {
   isPlaying: boolean;
@@ -70,15 +68,6 @@ const FlappyBirdGame: React.FC = () => {
   // Leaderboard
   const { leaderboard, isLoading, error, submitScore, loadLeaderboard, shareScore } = useLeaderboard();
   
-  // Achievements
-  const { 
-    achievements, 
-    recentlyUnlocked, 
-    checkScoreAchievements, 
-    checkPowerUpAchievements, 
-    checkSurvivalAchievements, 
-    checkSpecialAchievements 
-  } = useAchievements();
   
   // Game state
   const [gameState, setGameState] = useState<GameState>({
@@ -105,7 +94,6 @@ const FlappyBirdGame: React.FC = () => {
   const [lastScore, setLastScore] = useState(0);
   const [stars, setStars] = useState<Star[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [showAchievements, setShowAchievements] = useState(false);
   const [gameStats, setGameStats] = useState({
     powerUpsUsed: 0,
     obstaclesPassed: 0,
@@ -171,20 +159,49 @@ const FlappyBirdGame: React.FC = () => {
 
   const createStars = useCallback((canvasWidth: number, canvasHeight: number) => {
     const newStars: Star[] = [];
-    const starCount = 80; // Reduced number of stars
+    const starCount = 120; // Increased number of stars for better coverage
     
-    // Create stars with better distribution
-    for (let i = 0; i < starCount; i++) {
+    // Create a grid-based distribution for more uniform coverage
+    const gridCols = Math.ceil(Math.sqrt(starCount * (canvasWidth / canvasHeight)));
+    const gridRows = Math.ceil(starCount / gridCols);
+    const cellWidth = (canvasWidth + 200) / gridCols; // +200 for off-screen stars
+    const cellHeight = canvasHeight / gridRows;
+    
+    let starIndex = 0;
+    
+    // Fill the grid with stars
+    for (let row = 0; row < gridRows && starIndex < starCount; row++) {
+      for (let col = 0; col < gridCols && starIndex < starCount; col++) {
+        // Add some randomness within each grid cell for natural look
+        const baseX = col * cellWidth;
+        const baseY = row * cellHeight;
+        const randomOffsetX = (Math.random() - 0.5) * cellWidth * 0.8; // 80% of cell width
+        const randomOffsetY = (Math.random() - 0.5) * cellHeight * 0.8; // 80% of cell height
+        
+        newStars.push({
+          x: Math.max(0, baseX + randomOffsetX), // Ensure stars don't go negative
+          y: Math.max(0, Math.min(canvasHeight - 1, baseY + randomOffsetY)), // Clamp to canvas height
+          size: Math.random() * 2 + 1, // Size between 1-3 pixels
+          speed: Math.random() * 0.5 + 0.1, // Speed between 0.1-0.6
+          opacity: Math.random() * 0.8 + 0.2 // Opacity between 0.2-1.0
+        });
+        starIndex++;
+      }
+    }
+    
+    // Add some additional random stars for extra variety
+    const remainingStars = starCount - newStars.length;
+    for (let i = 0; i < remainingStars; i++) {
       newStars.push({
-        x: Math.random() * (canvasWidth + 100), // Start some stars off-screen
-        y: Math.random() * canvasHeight, // Distribute across full height
-        size: Math.random() * 2 + 1, // Size between 1-3 pixels
-        speed: Math.random() * 0.5 + 0.1, // Speed between 0.1-0.6
-        opacity: Math.random() * 0.8 + 0.2 // Opacity between 0.2-1.0
+        x: Math.random() * (canvasWidth + 200),
+        y: Math.random() * canvasHeight,
+        size: Math.random() * 2 + 1,
+        speed: Math.random() * 0.5 + 0.1,
+        opacity: Math.random() * 0.8 + 0.2
       });
     }
     
-    console.log('Created stars:', newStars.length, 'for canvas:', canvasWidth, 'x', canvasHeight);
+    console.log('Created stars:', newStars.length, 'for canvas:', canvasWidth, 'x', canvasHeight, 'using grid:', gridCols, 'x', gridRows);
     return newStars;
   }, []);
 
@@ -199,20 +216,45 @@ const FlappyBirdGame: React.FC = () => {
   }, []);
 
   const updateStars = useCallback((canvasWidth: number) => {
-    setStars(prev => 
-      prev.map(star => {
+    setStars(prev => {
+      // If no stars exist, create them
+      if (prev.length === 0) {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          return createStars(canvas.width, canvas.height);
+        } else {
+          return createStars(800, 600);
+        }
+      }
+      
+      return prev.map(star => {
         let newX = star.x - star.speed;
         // Reset star position when it goes off screen
         if (newX < -star.size) {
-          newX = canvasWidth + Math.random() * 100; // Randomize re-entry position
+          // Use a more uniform distribution for re-entry
+          const canvas = canvasRef.current;
+          const canvasHeight = canvas ? canvas.height : (window.innerHeight || 800);
+          
+          // Distribute re-entry across the full height more evenly
+          const heightSections = 8; // Divide height into 8 sections
+          const sectionHeight = canvasHeight / heightSections;
+          const randomSection = Math.floor(Math.random() * heightSections);
+          const randomY = randomSection * sectionHeight + Math.random() * sectionHeight;
+          
+          newX = canvasWidth + Math.random() * 200; // Randomize re-entry position
+          return {
+            ...star,
+            x: newX,
+            y: Math.max(0, Math.min(canvasHeight - 1, randomY)) // Clamp to canvas height
+          };
         }
         return {
           ...star,
           x: newX
         };
-      })
-    );
-  }, []);
+      });
+    });
+  }, [createStars]);
 
   const checkPowerUpCollision = useCallback(() => {
     powerUps.forEach(powerUp => {
@@ -357,13 +399,6 @@ const FlappyBirdGame: React.FC = () => {
           return newState;
         });
         
-        // Check special achievements
-        checkSpecialAchievements({
-          score: gameState.score,
-          powerUpsUsed: gameStats.powerUpsUsed,
-          gameTime: Date.now() - gameStats.gameStartTime,
-          obstaclesPassed: gameStats.obstaclesPassed
-        });
         // Removed red splash effect on ground collision
         playGameOverSound();
         return { ...prevBird, y: 400 - BIRD_SIZE, velocity: 0 };
@@ -420,9 +455,6 @@ const FlappyBirdGame: React.FC = () => {
             obstaclesPassed: prev.obstaclesPassed + 1
           }));
           
-          // Check achievements
-          checkScoreAchievements(gameState.score + points);
-          checkSurvivalAchievements(gameStats.obstaclesPassed + 1);
           
           createParticles(obstacle.x + OBSTACLE_WIDTH, bird.y, 8, '#00ff88');
           playScoreSound();
@@ -478,13 +510,6 @@ const FlappyBirdGame: React.FC = () => {
           return newState;
         });
         
-        // Check special achievements
-        checkSpecialAchievements({
-          score: gameState.score,
-          powerUpsUsed: gameStats.powerUpsUsed,
-          gameTime: Date.now() - gameStats.gameStartTime,
-          obstaclesPassed: gameStats.obstaclesPassed
-        });
         // Removed red splash effect on obstacle collision
         playCollisionSound();
       }
@@ -893,6 +918,15 @@ const FlappyBirdGame: React.FC = () => {
     }
   }, [images, backgroundOffset, obstacles, bird, imagesLoaded, powerUps, particles, activePowerUps, stars]);
 
+  // Initialize stars on component mount
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const initialStars = createStars(canvas.width, canvas.height);
+      setStars(initialStars);
+    }
+  }, []);
+
   // Render on every frame
   useEffect(() => {
     render();
@@ -958,12 +992,6 @@ const FlappyBirdGame: React.FC = () => {
                   className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.8)] border border-blue-400"
                 >
                   {showLeaderboard ? 'HIDE' : 'LEADERBOARD'}
-                </button>
-                <button
-                  onClick={() => setShowAchievements(!showAchievements)}
-                  className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(251,191,36,0.5)] hover:shadow-[0_0_25px_rgba(251,191,36,0.8)] border border-yellow-400"
-                >
-                  {showAchievements ? 'HIDE' : 'ACHIEVEMENTS'}
                 </button>
                 <button
                   onClick={() => shareScore(gameState.score)}
@@ -1034,19 +1062,7 @@ const FlappyBirdGame: React.FC = () => {
           </div>
         )}
 
-        {/* Achievements Modal */}
-        {showAchievements && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 pointer-events-auto z-50">
-            <div className="bg-gray-900 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-              <Achievements
-                achievements={achievements}
-                recentlyUnlocked={recentlyUnlocked}
-                onClose={() => setShowAchievements(false)}
-              />
-            </div>
-          </div>
-        )}
-
+        
         {/* Particle Effects */}
         <ParticleEffect 
           active={showCelebration} 

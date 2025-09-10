@@ -73,7 +73,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({
           onClick={() => window.location.reload()}
           className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
         >
-          Reintentar
+          Retry
         </button>
       </div>
     );
