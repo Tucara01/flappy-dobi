@@ -6,9 +6,7 @@ import {
   gameAPI, 
   initializeGameSession, 
   isSessionActive,
-  type Game,
-  type ClaimableGamesResponse,
-  type ClaimRewardResponse
+  type Game
 } from "../../../lib/gameClient";
 
 interface GameState {
@@ -32,7 +30,7 @@ interface GameState {
  */
 export function ClaimTab() {
   const { address } = useAccount();
-  const [gameState, setGameState] = useState<GameState>({
+  const [, setGameState] = useState<GameState>({
     canClaimReward: false,
     hasWon: false,
     score: 0
@@ -248,7 +246,7 @@ export function ClaimTab() {
           </li>
           <li className="flex items-start space-x-2">
             <span className="text-yellow-400">•</span>
-            <span><strong>Note:</strong> Practice mode games don't earn rewards</span>
+            <span><strong>Note:</strong> Practice mode games don&apos;t earn rewards</span>
           </li>
         </ul>
       </div>

@@ -57,24 +57,13 @@ export default function App(
   const [context, setContext] = useState<any>(null);
 
   // --- Hooks ---
-  let miniAppData;
-  try {
-    miniAppData = useMiniApp();
-  } catch (err) {
-    // If useMiniApp fails (like in localhost), use fallback
-    miniAppData = {
-      isSDKLoaded: false,
-      context: null,
-      setInitialTab: null,
-      setActiveTab: setCurrentTab,
-      currentTab: currentTab
-    };
-  }
+  // Always call the hook, but handle errors in useEffect
+  const miniAppData = useMiniApp();
 
   const {
     isSDKLoaded: sdkLoaded,
     context: sdkContext,
-    setInitialTab,
+    setInitialTab: _setInitialTab,
     setActiveTab: sdkSetActiveTab,
     currentTab: sdkCurrentTab,
   } = miniAppData;

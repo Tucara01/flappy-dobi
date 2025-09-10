@@ -532,7 +532,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
 
     // Update obstacles
     setObstacles(prevObstacles => {
-      let newObstacles = prevObstacles.map(obstacle => ({
+      const newObstacles = prevObstacles.map(obstacle => ({
         ...obstacle,
         x: obstacle.x - OBSTACLE_SPEED
       })).filter(obstacle => obstacle.x > -OBSTACLE_WIDTH);
