@@ -135,9 +135,16 @@ export function WalletTab() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   
-  // Always call the hook, but handle errors in useEffect
-  const solanaWallet = useSolanaWallet();
-  const solanaPublicKey = solanaWallet?.publicKey;
+  // Safely call the hook with error handling
+  let solanaWallet = null;
+  let solanaPublicKey = null;
+  try {
+    solanaWallet = useSolanaWallet();
+    solanaPublicKey = solanaWallet?.publicKey;
+  } catch (error) {
+    console.error('useSolanaWallet failed:', error);
+    // Continue without Solana wallet
+  }
 
   // --- Wagmi Hooks ---
   const {
