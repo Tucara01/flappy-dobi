@@ -7,6 +7,7 @@ import { Tab } from "../../App";
 import FlappyBirdGame from "../../FlappyBirdGame";
 import { gameAPI, initializeGameSession, isSessionActive } from "../../../lib/gameClient";
 import { APP_SPLASH_URL } from "../../../lib/constants";
+import ContractStatus from "../ContractStatus";
 
 interface HomeTabProps {
   setActiveTab: (tab: Tab) => void;
@@ -47,7 +48,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
     totalScore: 0
   });
   const { address, isConnected } = useAccount();
-  const [gameMode, setGameMode] = useState<'home' | 'practice' | 'bet'>('home');
+  const [gameMode, setGameMode] = useState<'home' | 'practice' | 'bet' | 'bet-game'>('home');
   const [isLoadingStats, setIsLoadingStats] = useState(false);
 
   // Get combined stats from API
@@ -90,28 +91,11 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
     }
 
     try {
-      // Initialize game session with real wallet address
-      if (!isSessionActive()) {
-        const sessionResult = await initializeGameSession(address);
-        if (!sessionResult.success) {
-          console.error('Failed to initialize game session:', sessionResult.error);
-          alert('Failed to initialize game session. Please try again.');
-          return;
-        }
-      }
-
-      // Here you would implement the smart contract interaction
-      // For now, we'll show an alert and navigate to game
-      alert('Bet mode activated! Smart contract will be executed...');
+      console.log('Starting bet mode execution...');
       
-      // Start bet mode
+      // Simply switch to bet mode - the ContractStatus component will handle the smart contract interaction
       setGameMode('bet');
-      
-      // TODO: Implement actual smart contract call
-      // Example:
-      // const contract = new ethers.Contract(contractAddress, abi, signer);
-      // const tx = await contract.startBetGame({ value: ethers.utils.parseEther("0.01") });
-      // await tx.wait();
+      console.log('Switched to bet mode');
       
     } catch (error) {
       console.error('Error executing bet mode:', error);
@@ -120,7 +104,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
   };
 
   // Show game when a mode is selected
-  if (gameMode === 'practice' || gameMode === 'bet') {
+  if (gameMode === 'practice') {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between mb-4">
@@ -132,12 +116,70 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
             <span>Back to Home</span>
           </button>
           <div className="text-sm text-gray-400">
-            {gameMode === 'practice' ? 'Practice Mode' : 'Bet Mode'}
+            Practice Mode
           </div>
         </div>
         <FlappyBirdGame 
           gameMode={gameMode} 
           onBackToHome={() => setGameMode('home')} 
+          playerAddress={address}
+        />
+      </div>
+    );
+  }
+
+  // Show bet mode contract interface
+  if (gameMode === 'bet') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => setGameMode('home')}
+            className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <span className="text-xl">←</span>
+            <span>Back to Home</span>
+          </button>
+          <div className="text-sm text-gray-400">
+            Bet Mode - Smart Contract
+          </div>
+        </div>
+        
+        <ContractStatus 
+          onGameCreated={(gameId) => {
+            console.log('Game created with ID:', gameId);
+            // Una vez creado el juego, iniciar el juego
+            setGameMode('bet-game');
+          }}
+          onClaimSuccess={() => {
+            console.log('Winnings claimed successfully');
+            // Volver al home después de reclamar
+            setGameMode('home');
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Show actual bet game when game is created
+  if (gameMode === 'bet-game') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => setGameMode('bet')}
+            className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <span className="text-xl">←</span>
+            <span>Back to Contract</span>
+          </button>
+          <div className="text-sm text-gray-400">
+            Bet Mode - Playing
+          </div>
+        </div>
+        <FlappyBirdGame 
+          gameMode="bet" 
+          onBackToHome={() => setGameMode('bet')} 
           playerAddress={address}
         />
       </div>
@@ -246,6 +288,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
           <div className="text-sm text-blue-200">Total Games</div>
         </div>
       </div>
+
 
       {/* Leaderboard Preview */}
       {!isLoading && leaderboard.entries.length > 0 && (

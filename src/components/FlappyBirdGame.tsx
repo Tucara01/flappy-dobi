@@ -81,14 +81,17 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   
   // Smart contract integration
   const { 
-    depositAndCreateGame, 
+    approveDobi,
+    createGame: createContractGame, 
     claimWinnings, 
     hasActiveGame, 
     currentGame, 
     activeGameId: contractGameId,
     isLoading: contractLoading,
     isConfirmed: contractConfirmed,
-    error: contractError 
+    error: contractError,
+    hasEnoughAllowance,
+    betAmount
   } = useFlappyDobiContract();
   
   
@@ -411,16 +414,44 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       console.log('Creating game for player:', address, 'mode:', mode);
       
       if (mode === 'bet') {
-        // Para modo bet, depositar 1 USDC y crear juego en el contrato
-        console.log('Depositing 1 USDC and creating bet game with smart contract...');
-        const contractHash = await depositAndCreateGame();
-        if (contractHash) {
-          console.log('Deposit and game creation successful with hash:', contractHash);
-          // El gameId del contrato se obtendrá cuando se confirme la transacción
-          setGameState(prev => ({ ...prev, gameId: contractGameId || 0 }));
-          return contractGameId || 0;
+        // Para modo bet, verificar si ya tienes un juego activo
+        if (hasActiveGame && contractGameId) {
+          console.log('Using existing bet game with ID:', contractGameId);
+          setGameState(prev => ({ ...prev, gameId: contractGameId }));
+          return contractGameId;
+        }
+        
+        // Si no tienes juego activo, crear uno nuevo
+        console.log('Creating new bet game with DOBI smart contract...');
+        
+        // Verificar si tiene suficiente allowance
+        if (!hasEnoughAllowance) {
+          console.log('Approving DOBI tokens first...');
+          const approveHash = await approveDobi();
+          if (!approveHash) {
+            console.error('Failed to approve DOBI tokens');
+            return null;
+          }
+          // Esperar un poco para que se confirme la aprobación
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
+        const contractResult = await createContractGame();
+        if (contractResult && contractResult.hash) {
+          console.log('Game creation successful with hash:', contractResult.hash);
+          console.log('Game ID from contract:', contractResult.gameId);
+          
+          const gameId = contractResult.gameId;
+          console.log('Using game ID for game state:', gameId);
+          
+          setGameState(prev => ({ ...prev, gameId }));
+          
+          // El registro con el backend se hará automáticamente cuando se confirme la transacción
+          console.log('⏳ Waiting for transaction confirmation to register with backend...');
+          
+          return gameId;
         } else {
-          console.error('Failed to deposit and create contract game');
+          console.error('Failed to create contract game');
           return null;
         }
       } else {
@@ -458,7 +489,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       console.error('Error creating game:', error);
     }
     return null;
-  }, [depositAndCreateGame, contractGameId]);
+  }, [createContractGame, contractGameId, hasEnoughAllowance, approveDobi]);
 
   const updateGameScore = useCallback(async (gameId: number, score: number) => {
     try {
@@ -561,6 +592,53 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
             submitScore(prev.score);
             updateGameStats(prev.score);
           }
+          
+          // Notificar al backend si es un juego de bet mode
+          if (gameMode === 'bet' && contractGameId && prev.gameId) {
+            console.log('🔴 COLLISION - Notifying backend of bet game loss:', {
+              gameId: contractGameId,
+              score: prev.score,
+              result: 'lost',
+              gameMode: gameMode,
+              timestamp: new Date().toISOString()
+            });
+            
+            const requestBody = { 
+              gameId: contractGameId, 
+              score: prev.score,
+              result: 'lost'
+            };
+            
+            console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
+            
+            fetch('/api/games/bet', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody)
+            }).then(response => {
+              console.log('📥 Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok
+              });
+              
+              if (response.ok) {
+                console.log('✅ Bet game loss notification sent successfully');
+                return response.json();
+              } else {
+                console.error('❌ Failed to notify bet game loss:', response.status);
+                return response.text().then(text => {
+                  console.error('❌ Error response body:', text);
+                  throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+              }
+            }).then(data => {
+              console.log('📋 Response data:', data);
+            }).catch(error => {
+              console.error('❌ Error notifying bet game loss:', error);
+            });
+          }
+          
           return newState;
         });
         
@@ -628,10 +706,29 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               // Update game status to won
               if (prev.gameId) {
                 if (gameMode === 'bet' && contractGameId) {
-                  // Para juegos de bet, el backend evaluará el score y llamará al contrato
-                  console.log('Player won bet game! Backend will evaluate score and update contract.');
-                  // El backend debe llamar a setResult(gameId, true) en el contrato
-                  // Enviar datos al backend para que evalúe
+                  // Para juegos de bet, notificar al backend sobre la victoria
+                  console.log('Player won bet game! Notifying backend...');
+                  
+                  // Notificar al backend sobre la victoria (async)
+                  fetch('/api/games/bet', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      gameId: contractGameId, 
+                      score: newScore,
+                      result: 'won'
+                    })
+                  }).then(response => {
+                    if (response.ok) {
+                      console.log('Bet game victory registered with backend');
+                    } else {
+                      response.text().then(text => console.warn('Failed to register bet game victory:', text));
+                    }
+                  }).catch(error => {
+                    console.error('Error registering bet game victory:', error);
+                  });
+                  
+                  // También enviar al endpoint de evaluación del contrato
                   fetch('/api/games/evaluate-contract', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -640,7 +737,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
                       score: newScore,
                       playerAddress: playerAddress 
                     })
-                  });
+                  }).catch(error => console.error('Error evaluating contract:', error));
                 } else {
                   // Para juegos de practice, usar el sistema original
                   updateGameScore(prev.gameId, newScore);
@@ -724,6 +821,53 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
             submitScore(prev.score);
             updateGameStats(prev.score);
           }
+          
+          // Notificar al backend si es un juego de bet mode
+          if (gameMode === 'bet' && contractGameId && prev.gameId) {
+            console.log('🔴 COLLISION - Notifying backend of bet game loss:', {
+              gameId: contractGameId,
+              score: prev.score,
+              result: 'lost',
+              gameMode: gameMode,
+              timestamp: new Date().toISOString()
+            });
+            
+            const requestBody = { 
+              gameId: contractGameId, 
+              score: prev.score,
+              result: 'lost'
+            };
+            
+            console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
+            
+            fetch('/api/games/bet', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(requestBody)
+            }).then(response => {
+              console.log('📥 Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok
+              });
+              
+              if (response.ok) {
+                console.log('✅ Bet game loss notification sent successfully');
+                return response.json();
+              } else {
+                console.error('❌ Failed to notify bet game loss:', response.status);
+                return response.text().then(text => {
+                  console.error('❌ Error response body:', text);
+                  throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+              }
+            }).then(data => {
+              console.log('📋 Response data:', data);
+            }).catch(error => {
+              console.error('❌ Error notifying bet game loss:', error);
+            });
+          }
+          
           return newState;
         });
         
@@ -1190,45 +1334,72 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 pointer-events-auto">
             <AnimatedText animation="futuristic" variant="title" delay={200}>
               <div className="text-center mb-8">
-                <h2 className="mb-4">GAME OVER</h2>
-                <div className="text-2xl mb-2">Score: {gameState.score}</div>
+                <h2 className="mb-6 text-4xl font-bold text-white">GAME OVER</h2>
+                <div className="text-3xl mb-3 font-bold text-white">Score: {gameState.score}</div>
                 {gameState.score > gameState.highScore && (
-                  <div className="text-cyan-400 text-lg animate-pulse">New Record!</div>
+                  <div className="text-cyan-400 text-xl font-bold animate-pulse">New Record!</div>
                 )}
               </div>
             </AnimatedText>
             <AnimatedText animation="cyber" delay={600}>
               <div className="flex flex-wrap gap-4 justify-center">
-                <button
-                  onClick={handleJump}
-                  className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_rgba(0,255,255,0.5)] hover:shadow-[0_0_30px_rgba(0,255,255,0.8)] border border-cyan-400"
-                >
-                  PLAY AGAIN
-                </button>
-                {gameMode === 'bet' && gameState.hasWon && (
-                  <div className="text-center">
-                    <p className="text-green-400 text-sm mb-2">🎉 You Won! Go to Claim tab to get your reward</p>
-                  </div>
+                {/* Different behavior for bet mode vs practice mode */}
+                {gameMode === 'bet' ? (
+                  // Bet mode: Show different messages based on win/loss
+                  <>
+                    {gameState.hasWon ? (
+                      <div className="text-center mb-6">
+                        <p className="text-green-400 text-2xl font-bold mb-3">🎉 You Won! Score: {gameState.score}</p>
+                        <p className="text-green-300 text-lg font-medium">Go to Claim tab to get your reward</p>
+                      </div>
+                    ) : (
+                      <div className="text-center mb-6">
+                        <p className="text-red-400 text-2xl font-bold mb-3">💸 You Lost! Score: {gameState.score}</p>
+                        <p className="text-red-300 text-lg font-medium">You needed 50+ points to win. Tokens have been forfeited.</p>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        // Go back to contract interface
+                        if (onBackToHome) {
+                          onBackToHome();
+                        }
+                      }}
+                      className="px-10 py-4 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] hover:shadow-[0_0_25px_rgba(168,85,247,0.8)] border border-purple-400 text-lg"
+                    >
+                      BACK TO CONTRACT
+                    </button>
+                  </>
+                ) : (
+                  // Practice mode: Show play again button
+                  <>
+                    <button
+                      onClick={handleJump}
+                      className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_rgba(0,255,255,0.5)] hover:shadow-[0_0_30px_rgba(0,255,255,0.8)] border border-cyan-400"
+                    >
+                      PLAY AGAIN
+                    </button>
+                    <button
+                      onClick={() => setShowLeaderboard(!showLeaderboard)}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.8)] border border-blue-400"
+                    >
+                      {showLeaderboard ? 'HIDE' : 'LEADERBOARD'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        // Go back to home tab
+                        if (onBackToHome) {
+                          onBackToHome();
+                        } else {
+                          window.location.reload();
+                        }
+                      }}
+                      className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] hover:shadow-[0_0_25px_rgba(168,85,247,0.8)] border border-purple-400"
+                    >
+                      HOME
+                    </button>
+                  </>
                 )}
-                <button
-                  onClick={() => setShowLeaderboard(!showLeaderboard)}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-400 hover:to-purple-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.8)] border border-blue-400"
-                >
-                  {showLeaderboard ? 'HIDE' : 'LEADERBOARD'}
-                </button>
-                <button
-                  onClick={() => {
-                    // Go back to home tab
-                    if (onBackToHome) {
-                      onBackToHome();
-                    } else {
-                      window.location.reload();
-                    }
-                  }}
-                  className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] hover:shadow-[0_0_25px_rgba(168,85,247,0.8)] border border-purple-400"
-                >
-                  HOME
-                </button>
               </div>
             </AnimatedText>
           </div>

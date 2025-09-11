@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlappyDobi Game Interface</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .wallet-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
+        }
+
+        .card h3 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+            font-size: 1.3rem;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #gray;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-card {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .status-card h4 {
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-card .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #48bb78;
+        }
+
+        .notification.error {
+            background: #f56565;
+        }
+
+        .notification.info {
+            background: #4299e1;
+        }
+
+        .game-status {
+            background: linear-gradient(135deg, #fef5e7 0%, #feebc8 100%);
+            border: 2px solid #ed8936;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .game-status.pending {
+            background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
+            border-color: #4fd1c7;
+        }
+
+        .game-status.won {
+            background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+            border-color: #48bb78;
+        }
+
+        .game-status.lost {
+            background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+            border-color: #f56565;
+        }
+
+        .logs {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .logs .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        .logs .log-success {
+            background: rgba(72, 187, 120, 0.2);
+            border-left: 3px solid #48bb78;
+        }
+
+        .logs .log-error {
+            background: rgba(245, 101, 101, 0.2);
+            border-left: 3px solid #f56565;
+        }
+
+        .logs .log-info {
+            background: rgba(66, 153, 225, 0.2);
+            border-left: 3px solid #4299e1;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .admin-section {
+            border: 2px solid #f56565;
+            background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+        }
+
+        .admin-section h3 {
+            color: #c53030;
+            border-bottom-color: #f56565;
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+
+        .tx-link {
+            color: #4299e1;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .tx-link:hover {
+            text-decoration: underline;
+        }
+
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .connection-status.connected {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .connection-status.disconnected {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-gamepad"></i> FlappyDobi Game</h1>
+            <p>Interfaz completa para interactuar con el contrato en Base Mainnet</p>
+        </div>
+
+        <!-- Wallet Connection -->
+        <div class="wallet-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <div>
+                    <button id="connectWallet" class="btn">
+                        <i class="fas fa-wallet"></i> Conectar Wallet
+                    </button>
+                    <span id="connectionStatus" class="connection-status disconnected">
+                        <i class="fas fa-circle"></i> Desconectado
+                    </span>
+                </div>
+                <div id="walletInfo" style="display: none;">
+                    <span id="walletAddress"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contract Status -->
+        <div class="status-grid">
+            <div class="status-card">
+                <h4><i class="fas fa-coins"></i> Bet Amount</h4>
+                <div class="value" id="betAmount">0 DOBI</div>
+            </div>
+            <div class="status-card">
+                <h4><i class="fas fa-hashtag"></i> Next Game ID</h4>
+                <div class="value" id="nextGameId">0</div>
+            </div>
+            <div class="status-card">
+                <h4><i class="fas fa-bank"></i> Contract Balance</h4>
+                <div class="value" id="contractBalance">0 DOBI</div>
+            </div>
+            <div class="status-card">
+                <h4><i class="fas fa-user-circle"></i> Your Balance</h4>
+                <div class="value" id="userBalance">0 DOBI</div>
+            </div>
+            <div class="status-card">
+                <h4><i class="fas fa-check-circle"></i> Your Allowance</h4>
+                <div class="value" id="userAllowance">0 DOBI</div>
+            </div>
+            <div class="status-card">
+                <h4><i class="fas fa-pause-circle"></i> Contract Status</h4>
+                <div class="value" id="contractStatus">Active</div>
+            </div>
+        </div>
+
+        <!-- Game Status -->
+        <div id="gameStatusCard" class="game-status" style="display: none;">
+            <h3><i class="fas fa-trophy"></i> Tu Juego Activo</h3>
+            <p><strong>Game ID:</strong> <span id="activeGameId">-</span></p>
+            <p><strong>Status:</strong> <span id="activeGameStatus">-</span></p>
+            <div id="gameActions" style="margin-top: 15px;"></div>
+        </div>
+
+        <div class="main-grid">
+            <!-- Game Functions -->
+            <div class="card">
+                <h3><i class="fas fa-gamepad"></i> Funciones de Juego</h3>
+                
+                <button id="refreshStatus" class="btn">
+                    <i class="fas fa-sync-alt"></i> Actualizar Estado
+                </button>
+                
+                <button id="approveTokens" class="btn btn-warning">
+                    <i class="fas fa-check"></i> Aprobar DOBI
+                </button>
+                
+                <button id="createGame" class="btn btn-success">
+                    <i class="fas fa-play"></i> Crear Juego
+                </button>
+                
+                <button id="claimWinnings" class="btn btn-success">
+                    <i class="fas fa-gift"></i> Reclamar Premio
+                </button>
+
+                <div class="input-group" style="margin-top: 20px;">
+                    <label for="gameIdInput">Game ID para consultar:</label>
+                    <input type="number" id="gameIdInput" placeholder="Ingresa Game ID">
+                    <button id="checkGame" class="btn" style="margin-top: 10px;">
+                        <i class="fas fa-search"></i> Consultar Juego
+                    </button>
+                </div>
+            </div>
+
+            <!-- Admin Functions -->
+            <div class="card admin-section">
+                <h3><i class="fas fa-cog"></i> Funciones de Admin</h3>
+                <p style="margin-bottom: 15px; color: #c53030; font-weight: 600;">⚠️ Solo para el owner del contrato</p>
+                
+                <div class="input-group">
+                    <label for="gameIdAdmin">Game ID:</label>
+                    <input type="number" id="gameIdAdmin" placeholder="Game ID">
+                </div>
+                
+                <button id="setWin" class="btn btn-success">
+                    <i class="fas fa-trophy"></i> Marcar como Ganado
+                </button>
+                
+                <button id="setLose" class="btn btn-danger">
+                    <i class="fas fa-times"></i> Marcar como Perdido
+                </button>
+                
+                <hr style="margin: 20px 0;">
+                
+                <div class="input-group">
+                    <label for="newBetAmount">Nuevo Bet Amount:</label>
+                    <input type="number" id="newBetAmount" placeholder="Ej: 3500">
+                </div>
+                
+                <button id="setBetAmount" class="btn">
+                    <i class="fas fa-coins"></i> Cambiar Bet Amount
+                </button>
+                
+                <hr style="margin: 20px 0;">
+                
+                <button id="pauseContract" class="btn btn-warning">
+                    <i class="fas fa-pause"></i> Pausar Contrato
+                </button>
+                
+                <button id="unpauseContract" class="btn btn-success">
+                    <i class="fas fa-play"></i> Despausar Contrato
+                </button>
+                
+                <hr style="margin: 20px 0;">
+                
+                <div class="input-group">
+                    <label for="withdrawAmount">Cantidad a retirar:</label>
+                    <input type="number" id="withdrawAmount" placeholder="Cantidad en DOBI">
+                </div>
+                
+                <button id="withdrawFunds" class="btn btn-danger">
+                    <i class="fas fa-money-bill-wave"></i> Retirar Fondos
+                </button>
+            </div>
+        </div>
+
+        <!-- Event Logs -->
+        <div class="card">
+            <h3><i class="fas fa-list"></i> Event Logs</h3>
+            <button id="clearLogs" class="btn btn-warning" style="float: right;">
+                <i class="fas fa-trash"></i> Limpiar
+            </button>
+            <div id="eventLogs" class="logs">
+                <div class="log-entry log-info">🎮 Interfaz iniciada. Conecta tu wallet para comenzar...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // Contract Configuration
+        const CONTRACT_ADDRESS = "0xB57e102ecb7646a3a8AC08811e4eB4476f7ad929";
+        const DOBI_TOKEN_ADDRESS = "0x931eF8053E997b1Bab68d1E900a061305c0Ff4FB";
+        const BASE_CHAIN_ID = 8453;
+        const BASESCAN_URL = "https://basescan.org";
+
+        // Contract ABIs
+        const CONTRACT_ABI = [
+            "function owner() view returns (address)",
+            "function dobi() view returns (address)",
+            "function betAmount() view returns (uint256)",
+            "function nextGameId() view returns (uint256)",
+            "function games(uint256) view returns (address player, uint8 status)",
+            "function activeGameOf(address) view returns (uint256)",
+            "function paused() view returns (bool)",
+            "function createGame() returns (uint256)",
+            "function setResult(uint256 gameId, bool won)",
+            "function claimWinnings(uint256 gameId)",
+            "function withdraw(uint256 amount)",
+            "function pause()",
+            "function unpause()",
+            "function setBetAmount(uint256 newBetAmount)",
+            "event GameCreated(uint256 indexed gameId, address indexed player)",
+            "event GameResult(uint256 indexed gameId, bool won)",
+            "event PrizeClaimed(uint256 indexed gameId, address indexed player, uint256 amount)",
+            "event Withdraw(address indexed owner, uint256 amount)"
+        ];
+
+        const DOBI_ABI = [
+            "function balanceOf(address owner) view returns (uint256)",
+            "function approve(address spender, uint256 amount) returns (bool)",
+            "function allowance(address owner, address spender) view returns (uint256)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        // Global variables
+        let provider;
+        let signer;
+        let contract;
+        let dobiToken;
+        let userAddress;
+        let isOwner = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            checkWalletConnection();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('connectWallet').addEventListener('click', connectWallet);
+            document.getElementById('refreshStatus').addEventListener('click', refreshStatus);
+            document.getElementById('approveTokens').addEventListener('click', approveTokens);
+            document.getElementById('createGame').addEventListener('click', createGame);
+            document.getElementById('claimWinnings').addEventListener('click', claimWinnings);
+            document.getElementById('checkGame').addEventListener('click', checkGame);
+            document.getElementById('setWin').addEventListener('click', () => setGameResult(true));
+            document.getElementById('setLose').addEventListener('click', () => setGameResult(false));
+            document.getElementById('setBetAmount').addEventListener('click', setBetAmount);
+            document.getElementById('pauseContract').addEventListener('click', pauseContract);
+            document.getElementById('unpauseContract').addEventListener('click', unpauseContract);
+            document.getElementById('withdrawFunds').addEventListener('click', withdrawFunds);
+            document.getElementById('clearLogs').addEventListener('click', clearLogs);
+        }
+
+        async function checkWalletConnection() {
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
+                } catch (error) {
+                    logEvent('error', 'Error checking wallet connection: ' + error.message);
+                }
+            } else {
+                logEvent('error', 'MetaMask no está instalado');
+            }
+        }
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum === 'undefined') {
+                    throw new Error('MetaMask no está instalado');
+                }
+
+                // Request account access
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                
+                // Create provider and signer
+                provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
+                userAddress = await signer.getAddress();
+
+                // Check and switch to Base network
+                await switchToBase();
+
+                // Initialize contracts
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                dobiToken = new ethers.Contract(DOBI_TOKEN_ADDRESS, DOBI_ABI, signer);
+
+                // Update UI
+                updateConnectionStatus(true);
+                document.getElementById('walletAddress').textContent = `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`;
+                document.getElementById('walletInfo').style.display = 'block';
+
+                // Check if user is owner
+                const contractOwner = await contract.owner();
+                isOwner = contractOwner.toLowerCase() === userAddress.toLowerCase();
+
+                logEvent('success', `🟢 Wallet conectado: ${userAddress}`);
+                logEvent('info', `🔐 Eres owner: ${isOwner ? 'SÍ' : 'NO'}`);
+
+                // Load initial data
+                await refreshStatus();
+
+                // Setup event listeners
+                setupContractEventListeners();
+
+            } catch (error) {
+                logEvent('error', 'Error conectando wallet: ' + error.message);
+                showNotification('Error conectando wallet: ' + error.message, 'error');
+            }
+        }
+
+        async function switchToBase() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x2105' }], // Base mainnet
+                });
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x2105',
+                                chainName: 'Base',
+                                nativeCurrency: {
+                                    name: 'ETH',
+                                    symbol: 'ETH',
+                                    decimals: 18
+                                },
+                                rpcUrls: ['https://mainnet.base.org'],
+                                blockExplorerUrls: ['https://basescan.org']
+                            }]
+                        });
+                    } catch (addError) {
+                        throw new Error('Error añadiendo Base network');
+                    }
+                } else {
+                    throw switchError;
+                }
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusElement = document.getElementById('connectionStatus');
+            const connectButton = document.getElementById('connectWallet');
+            
+            if (connected) {
+                statusElement.className = 'connection-status connected';
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> Conectado';
+                connectButton.style.display = 'none';
+            } else {
+                statusElement.className = 'connection-status disconnected';
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> Desconectado';
+                connectButton.style.display = 'inline-flex';
+            }
+        }
+
+        async function refreshStatus() {
+            if (!contract || !dobiToken) return;
+
+            try {
+                logEvent('info', '🔄 Actualizando estado del contrato...');
+
+                // Get contract info
+                const betAmount = await contract.betAmount();
+                const nextGameId = await contract.nextGameId();
+                const isPaused = await contract.paused();
+                const contractBalance = await dobiToken.balanceOf(CONTRACT_ADDRESS);
+                const userBalance = await dobiToken.balanceOf(userAddress);
+                const userAllowance = await dobiToken.allowance(userAddress, CONTRACT_ADDRESS);
+                const activeGameId = await contract.activeGameOf(userAddress);
+
+                // Update UI
+                document.getElementById('betAmount').textContent = `${betAmount.toString()} DOBI`;
+                document.getElementById('nextGameId').textContent = nextGameId.toString();
+                document.getElementById('contractBalance').textContent = `${contractBalance.toString()} DOBI`;
+                document.getElementById('userBalance').textContent = `${userBalance.toString()} DOBI`;
+                document.getElementById('userAllowance').textContent = `${userAllowance.toString()} DOBI`;
+                document.getElementById('contractStatus').textContent = isPaused ? 'Pausado' : 'Activo';
+
+                // Update game status
+                await updateGameStatus(activeGameId);
+
+                logEvent('success', '✅ Estado actualizado correctamente');
+
+            } catch (error) {
+                logEvent('error', 'Error actualizando estado: ' + error.message);
+            }
+        }
+
+        async function updateGameStatus(activeGameId) {
+            const gameStatusCard = document.getElementById('gameStatusCard');
+            const claimButton = document.getElementById('claimWinnings');
+
+            if (activeGameId.toString() === '0') {
+                gameStatusCard.style.display = 'none';
+                return;
+            }
+
+            try {
+                const game = await contract.games(activeGameId);
+                const statusNames = ['Pending', 'Won', 'Lost', 'Claimed'];
+                const status = statusNames[game.status];
+
+                document.getElementById('activeGameId').textContent = activeGameId.toString();
+                document.getElementById('activeGameStatus').textContent = status;
+
+                // Update card style based on status
+                gameStatusCard.className = `game-status ${status.toLowerCase()}`;
+                gameStatusCard.style.display = 'block';
+
+                // Show claim button if won
+                if (game.status === 1) { // Won
+                    claimButton.style.display = 'inline-flex';
+                } else {
+                }
+
+                logEvent('info', `🎮 Juego activo: ${activeGameId} - Estado: ${status}`);
+
+            } catch (error) {
+                logEvent('error', 'Error obteniendo info del juego: ' + error.message);
+            }
+        }
+
+        async function approveTokens() {
+            if (!dobiToken || !contract) return;
+
+            try {
+                logEvent('info', '🔧 Aprobando tokens DOBI...');
+                
+                const betAmount = await contract.betAmount();
+                const approveTx = await dobiToken.approve(CONTRACT_ADDRESS, betAmount * BigInt(100));
+                
+                logEvent('info', `⏳ TX enviada: ${getTxLink(approveTx.hash)}`);
+                showNotification('Transacción enviada', 'info');
+
+                await approveTx.wait();
+                logEvent('success', '✅ Tokens DOBI aprobados');
+                showNotification('Tokens aprobados correctamente', 'success');
+                
+                await refreshStatus();
+
+            } catch (error) {
+                logEvent('error', 'Error aprobando tokens: ' + error.message);
+                showNotification('Error aprobando tokens: ' + error.message, 'error');
+            }
+        }
+
+        async function createGame() {
+            if (!contract) return;
+
+            try {
+                logEvent('info', '🎮 Creando nuevo juego...');
+                
+                const createTx = await contract.createGame();
+                logEvent('info', `⏳ TX enviada: ${getTxLink(createTx.hash)}`);
+                showNotification('Creando juego...', 'info');
+
+                const receipt = await createTx.wait();
+                
+                // Find GameCreated event
+                const gameCreatedEvent = receipt.logs.find(log => {
+                    try {
+                        const parsed = contract.interface.parseLog(log);
+                        return parsed.name === 'GameCreated';
+                    } catch {
+                        return false;
+                    }
+                });
+
+                if (gameCreatedEvent) {
+                    const parsed = contract.interface.parseLog(gameCreatedEvent);
+                    const gameId = parsed.args.gameId;
+                    logEvent('success', `🎉 Juego creado con ID: ${gameId}`);
+                    showNotification(`Juego creado con ID: ${gameId}`, 'success');
+                } else {
+                    logEvent('success', '✅ Juego creado correctamente');
+                    showNotification('Juego creado correctamente', 'success');
+                }
+                
+                await refreshStatus();
+
+            } catch (error) {
+                logEvent('error', 'Error creando juego: ' + error.message);
+                showNotification('Error creando juego: ' + error.message, 'error');
+            }
+        }
+
+        async function claimWinnings() {
+            if (!contract) return;
+
+            try {
+                const activeGameId = await contract.activeGameOf(userAddress);
+                
+                if (activeGameId.toString() === '0') {
+                    throw new Error('No tienes juegos activos');
+                }
+
+                logEvent('info', `💰 Reclamando premio del juego ${activeGameId}...`);
+                
+                const claimTx = await contract.claimWinnings(activeGameId);
+                logEvent('info', `⏳ TX enviada: ${getTxLink(claimTx.hash)}`);
+                showNotification('Reclamando premio...', 'info');
+
+                await claimTx.wait();
+                logEvent('success', '🎉 Premio reclamado correctamente');
+                showNotification('Premio reclamado correctamente', 'success');
+                
+                await refreshStatus();
+
+            } catch (error) {
+                logEvent('error', 'Error reclamando premio: ' + error.message);
+                showNotification('Error reclamando premio: ' + error.message, 'error');
+            }
+        }
+
+        async function checkGame() {
+            if (!contract) return;
+
+            const gameId = document.getElementById('gameIdInput').value;
+            if (!gameId) {
+                showNotification('Ingresa un Game ID', 'error');
+                return;
+            }
+
+            try {
+                logEvent('info', `🔍 Consultando juego ${gameId}...`);
+                
+                const game = await contract.games(gameId);
+                const statusNames = ['Pending', 'Won', 'Lost', 'Claimed'];
+                const status = statusNames[game.status];
+
+                logEvent('success', `🎮 Juego ${gameId}: Player: ${game.player}, Status: ${status}`);
+                showNotification(`Juego ${gameId} - Status: ${status}`, 'info');
+
+            } catch (error) {
+                logEvent('error', 'Error consultando juego: ' + error.message);
+                showNotification('Error consultando juego: ' + error.message, 'error');
+            }
+        }
+
+        async function setGameResult(won) {
+            if (!contract || !isOwner) {
+                showNotification('Solo el owner puede usar esta función', 'error');
+                return;
+            }
+
+            const gameId = document.getElementById('gameIdAdmin').value;
+            if (!gameId) {
+                showNotification('Ingresa un Game ID', 'error');
+                return;
+            }
+
+            try {
+                const resultText = won ? 'GANADO' : 'PERDIDO';
+                logEvent('info', `🎯 Estableciendo juego ${gameId} como ${resultText}...`);
+                
+                const setResultTx = await contract.setResult(gameId, won);
+                logEvent('info', `⏳ TX enviada: ${getTxLink(setResultTx.hash)}`);
+                showNotification(`Estableciendo resultado...`, 'info');
+
+                await setResultTx.wait();
+                logEvent('success', `✅ Juego ${gameId} marcado como ${resultText}`);
+                showNotification(`Juego ${gameId} marcado como ${resultText}`, 'success');
+                
+                await refreshStatus();
+
+            } catch (error) {
+                logEvent('error', 'Error estableciendo resultado: ' + error.message);
+                showNotification('Error estableciendo resultado: ' + error.message, 'error');
+            }
+        }
+
+        async function setBetAmount() {
+            if (!contract || !isOwner) {
+                showNotification('Solo el owner puede usar esta función', 'error');
+                return;
+            }
+
+            const newAmount = document.getElementById('newBetAmount').value;
+            if (!newAmount) {
+                showNotification('Ingresa un nuevo bet amount', 'error');
+                return;
+            }
+
+            try {
+                logEvent('info', `💰 Cambiando bet amount a ${newAmount}...`);
+                
+                const setBetTx = await contract.setBetAmount(newAmount);
+                logEvent('info', `⏳ TX enviada: ${getTxLink(setBetTx.hash)}`);
+                showNotification('Cambiando bet amount...', 'info');
+
+                await setBetTx.wait();
+                logEvent('success', `✅ Bet amount cambiado a ${newAmount}`);
+                showNotification(`Bet amount cambiado a ${newAmount}`, 'success');
+                
+                await refreshStatus();
+
+            } catch (error) {
+                logEvent('error', 'Error cambiando bet amount: ' + error.message);
+                showNotification('Error cambiando bet amount: ' + error.message, 'error');
+            }
+        }
+
+        async function pauseContract() {
+            if (!contract || !isOwner) {
+                showNotification('Solo el owner puede usar esta función', 'error');
+                return;
+            }
+
+            try {
+                logEvent('info', '⏸️ Pausando contrato...');
+                
+                const pauseTx = await contract.pause();
+                logEvent('info', `⏳ TX enviada: ${getTxLink(pauseTx.hash)}`);
+                showNotification('Pausando contrato...', 'info');
+
+                await pauseTx.wait();
+                logEvent('success', '✅ Contrato pausado');
+                showNotification('Contrato pausado', 'success');
+                
+                await refreshStatus();
+
+            } catch (error) {
+                logEvent('error', 'Error pausando contrato: ' + error.message);
+                showNotification('Error pausando contrato: ' + error.message, 'error');
+            }
+        }
+
+        async function unpauseContract() {
+            if (!contract || !isOwner) {
+                showNotification('Solo el owner puede usar esta función', 'error');
+                return;
+            }
+
+            try {
+                logEvent('info', '▶️ Despausando contrato...');
+                
+                const unpauseTx = await contract.unpause();
+                logEvent('info', `⏳ TX enviada: ${getTxLink(unpauseTx.hash)}`);
+                showNotification('Despausando contrato...', 'info');
+
+                await unpauseTx.wait();
+                logEvent('success', '✅ Contrato despausado');
+                showNotification('Contrato despausado', 'success');
+                
+                await refreshStatus();
+
+            } catch (error) {
+                logEvent('error', 'Error despausando contrato: ' + error.message);
+                showNotification('Error despausando contrato: ' + error.message, 'error');
+            }
+        }
+
+        async function withdrawFunds() {
+            if (!contract || !isOwner) {
+                showNotification('Solo el owner puede usar esta función', 'error');
+                return;
+            }
+
+            const amount = document.getElementById('withdrawAmount').value;
+            if (!amount) {
+                showNotification('Ingresa una cantidad a retirar', 'error');
+                return;
+            }
+
+            try {
+                logEvent('info', `🏦 Retirando ${amount} DOBI...`);
+                
+                const withdrawTx = await contract.withdraw(amount);
+                logEvent('info', `⏳ TX enviada: ${getTxLink(withdrawTx.hash)}`);
+                showNotification('Retirando fondos...', 'info');
+
+                await withdrawTx.wait();
+                logEvent('success', `✅ Retirados ${amount} DOBI`);
+                showNotification(`Retirados ${amount} DOBI`, 'success');
+                
+                await refreshStatus();
+
+            } catch (error) {
+                logEvent('error', 'Error retirando fondos: ' + error.message);
+                showNotification('Error retirando fondos: ' + error.message, 'error');
+            }
+        }
+
+        function setupContractEventListeners() {
+            if (!contract) return;
+
+            // GameCreated
+            contract.on("GameCreated", (gameId, player) => {
+                logEvent('success', `🎮 Nuevo juego creado: ID ${gameId} por ${player}`);
+                if (player.toLowerCase() === userAddress.toLowerCase()) {
+                    showNotification(`Tu juego ${gameId} fue creado`, 'success');
+                    refreshStatus();
+                }
+            });
+
+            // GameResult
+            contract.on("GameResult", (gameId, won) => {
+                const result = won ? 'GANADO' : 'PERDIDO';
+                logEvent('info', `🎯 Resultado: Juego ${gameId} ${result}`);
+            });
+
+            // PrizeClaimed
+            contract.on("PrizeClaimed", (gameId, player, amount) => {
+                logEvent('success', `💰 Premio reclamado: ${amount} DOBI del juego ${gameId}`);
+                if (player.toLowerCase() === userAddress.toLowerCase()) {
+                    showNotification(`Premio de ${amount} DOBI reclamado`, 'success');
+                    refreshStatus();
+                }
+            });
+        }
+
+        function logEvent(type, message) {
+            const logs = document.getElementById('eventLogs');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('eventLogs').innerHTML = '<div class="log-entry log-info">🧹 Logs limpiados</div>';
+        }
+
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type} show`;
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
+        }
+
+        function getTxLink(hash) {
+            return `<a href="${BASESCAN_URL}/tx/${hash}" target="_blank" class="tx-link">${hash.slice(0, 10)}...</a>`;
+        }
+
+        // Handle account changes
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length === 0) {
+                    updateConnectionStatus(false);
+                    logEvent('info', '🔌 Wallet desconectado');
+                } else {
+                    connectWallet();
+                }
+            });
+
+            window.ethereum.on('chainChanged', (chainId) => {
+                if (parseInt(chainId, 16) !== BASE_CHAIN_ID) {
+                    logEvent('error', '⚠️ Red incorrecta. Cambia a Base Mainnet');
+                    showNotification('Cambia a Base Mainnet', 'error');
+                } else {
+                    logEvent('success', '✅ Conectado a Base Mainnet');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

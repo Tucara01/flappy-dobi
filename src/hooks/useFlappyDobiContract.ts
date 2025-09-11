@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { parseUnits } from 'viem';
+import { parseUnits, createPublicClient, http } from 'viem';
+import { base } from 'viem/chains';
 
-// ABI del contrato
+// ABI del contrato FlappyDobiVsScore
 const CONTRACT_ABI = [
   {
     "inputs": [
@@ -47,9 +48,14 @@ const CONTRACT_ABI = [
         "internalType": "uint256",
         "name": "gameId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "won",
+        "type": "bool"
       }
     ],
-    "name": "claimWinnings",
+    "name": "setResult",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -57,8 +63,32 @@ const CONTRACT_ABI = [
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      }
+    ],
+    "name": "games",
+    "outputs": [
+      {
         "internalType": "address",
-        "name": "",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "internalType": "uint8",
+        "name": "status",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "player",
         "type": "address"
       }
     ],
@@ -74,24 +104,88 @@ const CONTRACT_ABI = [
     "type": "function"
   },
   {
-    "inputs": [
+    "inputs": [],
+    "name": "betAmount",
+    "outputs": [
       {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
       }
     ],
-    "name": "games",
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextGameId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
     "outputs": [
       {
         "internalType": "address",
-        "name": "player",
+        "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "usdc",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "from",
+        "type": "uint256"
       },
       {
-        "internalType": "enum FlappyDobiVsScore.GameStatus",
-        "name": "status",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "to",
+        "type": "uint256"
+      }
+    ],
+    "name": "listGames",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "player",
+            "type": "address"
+          },
+          {
+            "internalType": "enum FlappyDobiVsScore.GameStatus",
+            "name": "status",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct FlappyDobiVsScore.Game[]",
+        "name": "result",
+        "type": "tuple[]"
       }
     ],
     "stateMutability": "view",
@@ -99,11 +193,93 @@ const CONTRACT_ABI = [
   }
 ] as const;
 
-// Dirección del contrato (debes reemplazar con la dirección real del contrato desplegado)
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
+// Direcciones del contrato (usando DOBI en lugar de USDC)
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x081bee6c172B4E25A225e29810686343787cED1F";
+const DOBI_ADDRESS = "0x931eF8053E997b1Bab68d1E900a061305c0Ff4FB"; // DOBI token address
 
-// Dirección del token USDC (debes reemplazar con la dirección real del USDC)
-const USDC_ADDRESS = process.env.NEXT_PUBLIC_USDC_ADDRESS || '0x0000000000000000000000000000000000000000';
+// ABI del token DOBI
+const DOBI_ABI = [
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "spender",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "approve",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "spender",
+        "type": "address"
+      }
+    ],
+    "name": "allowance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "balanceOf",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "decimals",
+    "outputs": [
+      {
+        "internalType": "uint8",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
 
 export interface GameStatus {
   Pending: 0;
@@ -121,6 +297,13 @@ export function useFlappyDobiContract() {
   const { address } = useAccount();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contractGameId, setContractGameId] = useState<number | null>(null);
+
+  // Crear cliente público para leer del contrato
+  const publicClient = createPublicClient({
+    chain: base,
+    transport: http(process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org'),
+  });
 
   // Hook para escribir al contrato
   const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
@@ -138,6 +321,52 @@ export function useFlappyDobiContract() {
     args: address ? [address] : undefined,
   });
 
+  // Actualizar contractGameId cuando se confirme la transacción
+  useEffect(() => {
+    if (isConfirmed && activeGameId) {
+      console.log('🎯 Transaction confirmed, updating contract game ID:', activeGameId);
+      setContractGameId(Number(activeGameId));
+      
+      // Notificar al backend sobre el nuevo juego de bet mode
+      if (address && hash) {
+        registerGameWithBackend(Number(activeGameId), hash as string);
+      }
+    }
+  }, [isConfirmed, activeGameId, address, hash]);
+
+  // Función para registrar el juego con el backend
+  const registerGameWithBackend = async (gameId: number, transactionHash: string) => {
+    try {
+      const registrationPayload = {
+        gameId: gameId,
+        playerAddress: address,
+        contractHash: transactionHash,
+        mode: 'bet',
+        status: 'active'
+      };
+      
+      console.log('📤 Registering bet game with backend:', registrationPayload);
+      
+      const response = await fetch('/api/games/bet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registrationPayload)
+      });
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('✅ Bet game registered with backend successfully:', responseData);
+      } else {
+        const errorText = await response.text();
+        console.warn('❌ Failed to register bet game with backend:', errorText);
+      }
+    } catch (error) {
+      console.error('❌ Error registering bet game with backend:', error);
+    }
+  };
+
   // Hook para leer el estado del juego
   const { data: gameData } = useReadContract({
     address: CONTRACT_ADDRESS as `0x${string}`,
@@ -146,8 +375,74 @@ export function useFlappyDobiContract() {
     args: activeGameId ? [activeGameId] : undefined,
   });
 
-  // Depositar 1 USDC y crear juego
-  const depositAndCreateGame = useCallback(async () => {
+  // Hook para leer el bet amount
+  const { data: betAmount } = useReadContract({
+    address: CONTRACT_ADDRESS as `0x${string}`,
+    abi: CONTRACT_ABI,
+    functionName: 'betAmount',
+  });
+
+  // Usar el bet amount del contrato o el valor por defecto
+  const actualBetAmount = betAmount || BigInt(3500 * 1e18); // 3500 DOBI con 18 decimales
+  
+  console.log('Bet amount from contract:', betAmount);
+  console.log('Actual bet amount:', actualBetAmount);
+  console.log('Bet amount in DOBI:', actualBetAmount ? Number(actualBetAmount) / 1e18 : 3500);
+
+  // Hook para leer el balance de DOBI del usuario
+  const { data: userDobiBalance } = useReadContract({
+    address: DOBI_ADDRESS as `0x${string}`,
+    abi: DOBI_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+  });
+
+  // Hook para leer la allowance de DOBI
+  const { data: userDobiAllowance } = useReadContract({
+    address: DOBI_ADDRESS as `0x${string}`,
+    abi: DOBI_ABI,
+    functionName: 'allowance',
+    args: address && CONTRACT_ADDRESS ? [address, CONTRACT_ADDRESS as `0x${string}`] : undefined,
+  });
+
+  // Aprobar DOBI tokens
+  const approveDobi = useCallback(async () => {
+    if (!address) {
+      setError('No wallet connected');
+      return null;
+    }
+
+    if (!actualBetAmount) {
+      setError('Bet amount not available');
+      return null;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Aprobar una cantidad mayor para evitar múltiples aprobaciones
+      const approveAmount = actualBetAmount * BigInt(10); // 10x el bet amount
+      
+      const hash = await writeContract({
+        address: DOBI_ADDRESS as `0x${string}`,
+        abi: DOBI_ABI,
+        functionName: 'approve',
+        args: [CONTRACT_ADDRESS as `0x${string}`, approveAmount],
+      });
+
+      return hash;
+    } catch (err) {
+      console.error('Error approving DOBI:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [address, actualBetAmount, writeContract]);
+
+  // Crear juego (esto automáticamente transfiere DOBI)
+  const createGame = useCallback(async () => {
     if (!address) {
       setError('No wallet connected');
       return null;
@@ -157,47 +452,28 @@ export function useFlappyDobiContract() {
     setError(null);
 
     try {
-      // Primero necesitamos aprobar el USDC para el contrato
-      const usdcAbi = [
-        {
-          "inputs": [
-            { "name": "spender", "type": "address" },
-            { "name": "amount", "type": "uint256" }
-          ],
-          "name": "approve",
-          "outputs": [{ "name": "", "type": "bool" }],
-          "stateMutability": "nonpayable",
-          "type": "function"
-        }
-      ];
-
-      // Aprobar 1 USDC (1e6 con 6 decimales)
-      const approveHash = await writeContract({
-        address: USDC_ADDRESS as `0x${string}`,
-        abi: usdcAbi,
-        functionName: 'approve',
-        args: [CONTRACT_ADDRESS as `0x${string}`, parseUnits('1', 6)],
-      });
-
-      // Esperar a que se confirme la aprobación
-      // En una implementación real, deberías esperar aquí
-
-      // Crear el juego (esto deposita el USDC y crea la partida)
-      const gameHash = await writeContract({
+      writeContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'createGame',
       });
 
-      return gameHash;
+      console.log('🎮 Game creation transaction initiated');
+
+      // Retornar el hash actual si existe, sino esperar a que se actualice
+      if (hash) {
+        return { hash, gameId: 0 }; // Temporal, se actualizará cuando se confirme
+      }
+
+      return null;
     } catch (err) {
-      console.error('Error depositing and creating game:', err);
+      console.error('Error creating game:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [address, writeContract]);
+  }, [address, writeContract, hash]);
 
   // Reclamar premio
   const claimWinnings = useCallback(async (gameId: number) => {
@@ -227,6 +503,34 @@ export function useFlappyDobiContract() {
     }
   }, [address, writeContract]);
 
+  // Establecer resultado del juego (solo para owner)
+  const setGameResult = useCallback(async (gameId: number, won: boolean) => {
+    if (!address) {
+      setError('No wallet connected');
+      return null;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const hash = await writeContract({
+        address: CONTRACT_ADDRESS as `0x${string}`,
+        abi: CONTRACT_ABI,
+        functionName: 'setResult',
+        args: [BigInt(gameId), won],
+      });
+
+      return hash;
+    } catch (err) {
+      console.error('Error setting game result:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [address, writeContract]);
+
   // Verificar si el jugador tiene un juego activo
   const hasActiveGame = activeGameId && activeGameId > 0;
 
@@ -238,16 +542,35 @@ export function useFlappyDobiContract() {
             gameData[1] === 2 ? 'Lost' : 'Claimed'
   } : null;
 
+  // Verificar si tiene suficiente allowance
+  const hasEnoughAllowance = userDobiAllowance && actualBetAmount ? userDobiAllowance >= actualBetAmount : false;
+
   return {
-    depositAndCreateGame,
+    // Funciones principales
+    approveDobi,
+    createGame,
     claimWinnings,
+    setGameResult,
+    
+    // Estado del juego
     hasActiveGame,
     currentGame,
     activeGameId: activeGameId ? Number(activeGameId) : null,
+    contractGameId,
+    
+    // Estado de la transacción
     isLoading: isLoading || isPending || isConfirming,
     isConfirmed,
     error: error || (writeError ? writeError.message : null),
+    
+    // Información del contrato
     contractAddress: CONTRACT_ADDRESS,
-    usdcAddress: USDC_ADDRESS,
+    dobiAddress: DOBI_ADDRESS,
+    betAmount: 3500, // 3500 DOBI fijo según el contrato
+    
+    // Información del usuario
+    userDobiBalance: userDobiBalance ? Number(userDobiBalance) : 0,
+    userDobiAllowance: userDobiAllowance ? Number(userDobiAllowance) : 0,
+    hasEnoughAllowance,
   };
 }

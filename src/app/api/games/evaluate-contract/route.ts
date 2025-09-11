@@ -1,32 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ethers } from 'ethers';
 
 // Configuración del contrato
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
-const PRIVATE_KEY = process.env.PRIVATE_KEY || ''; // Clave privada del owner
-const RPC_URL = process.env.RPC_URL || 'https://sepolia.infura.io/v3/YOUR_PROJECT_ID';
-
-// ABI del contrato
-const CONTRACT_ABI = [
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "gameId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "won",
-        "type": "bool"
-      }
-    ],
-    "name": "setResult",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-];
+const CONTRACT_ADDRESS = "0xB57e102ecb7646a3a8AC08811e4eB4476f7ad929";
+const DOBI_ADDRESS = "0x931eF8053E997b1Bab68d1E900a061305c0Ff4FB";
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,18 +20,25 @@ export async function POST(request: NextRequest) {
     
     console.log(`Evaluating contract game ${gameId}: score=${score}, won=${won}`);
 
-    // Conectar a la blockchain
-    const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, wallet);
+    // Llamar al endpoint interno para establecer el resultado
+    const setResultResponse = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/games/set-result`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        gameId,
+        won,
+        playerAddress
+      })
+    });
 
-    // Llamar al contrato para establecer el resultado
-    const tx = await contract.setResult(gameId, won);
-    console.log(`Contract transaction sent: ${tx.hash}`);
+    if (!setResultResponse.ok) {
+      const errorData = await setResultResponse.json();
+      throw new Error(`Failed to set result: ${errorData.error}`);
+    }
 
-    // Esperar a que se confirme la transacción
-    const receipt = await tx.wait();
-    console.log(`Contract transaction confirmed: ${receipt.hash}`);
+    const resultData = await setResultResponse.json();
 
     return NextResponse.json({
       success: true,
@@ -63,8 +46,7 @@ export async function POST(request: NextRequest) {
         gameId,
         score,
         won,
-        transactionHash: tx.hash,
-        blockNumber: receipt.blockNumber
+        transactionHash: resultData.transactionHash
       }
     });
 
