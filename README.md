@@ -29,11 +29,13 @@ To invoke the CLI directly in JavaScript, add the npm package to your project an
 import { init } from '@neynar/create-farcaster-mini-app';
 ```
 
-## Deploying to Vercel
-For projects that have made minimal changes to the quickstart template, deploy to vercel by running:
-```{bash}
-npm run deploy:vercel
-```
+## Deploying
+This project can be deployed to any hosting platform that supports Next.js applications. Some popular options include:
+
+- **Netlify**: Connect your GitHub repository for automatic deployments
+- **Railway**: Simple deployment with built-in database support
+- **DigitalOcean App Platform**: Scalable hosting with easy setup
+- **AWS Amplify**: Full-stack deployment with AWS integration
 
 ## Building for Production
 

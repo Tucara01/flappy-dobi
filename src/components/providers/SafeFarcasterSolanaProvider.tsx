@@ -46,7 +46,9 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
   useEffect(() => {
     let errorShown = false;
     const origError = console.error;
-    console.error = (...args) => {
+    
+    // Use a more stable approach to avoid useInsertionEffect issues
+    const handleError = (...args: any[]) => {
       try {
         if (
           typeof args[0] === "string" &&
@@ -64,9 +66,17 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
         // This prevents the error handler from breaking the app
       }
     };
+
+    // Only override console.error if we're in a browser environment
+    if (typeof window !== 'undefined') {
+      console.error = handleError;
+    }
+
     return () => {
       try {
-        console.error = origError;
+        if (typeof window !== 'undefined') {
+          console.error = origError;
+        }
       } catch (error) {
         // Ignore cleanup errors
       }
