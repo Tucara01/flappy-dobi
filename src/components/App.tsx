@@ -5,8 +5,10 @@ import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
 import { HomeTab, WalletTab, ClaimTab } from "~/components/ui/tabs";
+import { LoadingScreen } from "~/components/ui/LoadingScreen";
 import { USE_WALLET } from "~/lib/constants";
 import { useNeynarUser } from "../hooks/useNeynarUser";
+import { useFarcasterSDK } from "../hooks/useFarcasterSDK";
 
 // --- Types ---
 export enum Tab {
@@ -52,11 +54,13 @@ export default function App(
   { title }: AppProps = { title: "DOBI BIRD" }
 ) {
   // --- State for localhost mode ---
-  const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [currentTab, setCurrentTab] = useState<Tab>(Tab.Home);
   const [context, setContext] = useState<any>(null);
 
   // --- Hooks ---
+  // Farcaster SDK initialization
+  const { isReady: isFarcasterReady, isInitializing, error: sdkError, progress } = useFarcasterSDK();
+  
   // Always call the hook, handle errors in useEffect
   const miniAppData = useMiniApp();
 
@@ -73,13 +77,13 @@ export default function App(
 
   // --- Effects ---
   /**
-   * Initialize app state for localhost mode
+   * Initialize app state when Farcaster SDK is ready
    */
   useEffect(() => {
-    // Always initialize as loaded for localhost mode
-    setIsSDKLoaded(true);
-    setContext(sdkContext || null);
-  }, [sdkContext]);
+    if (isFarcasterReady) {
+      setContext(sdkContext || null);
+    }
+  }, [isFarcasterReady, sdkContext]);
 
   /**
    * Handle useMiniApp errors gracefully
@@ -98,14 +102,13 @@ export default function App(
   }, [miniAppData]);
 
   /**
-   * Sets the initial tab to "home" when the SDK is loaded.
+   * Sets the initial tab to "home" when everything is ready.
    */
   useEffect(() => {
-    if (isSDKLoaded) {
-      // Always use local state for tab management in localhost mode
+    if (isFarcasterReady) {
       setCurrentTab(Tab.Home);
     }
-  }, [isSDKLoaded]);
+  }, [isFarcasterReady]);
 
   // sdk.actions.ready() is now handled in the main app.tsx file
 
@@ -114,15 +117,25 @@ export default function App(
   const setActiveTab = setCurrentTab;
 
   // --- Early Returns ---
-  if (!isSDKLoaded) {
+  if (!isFarcasterReady || isInitializing) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-          <p className="text-white text-lg">Cargando Flappy DOBI...</p>
-          <p className="text-gray-400 text-sm mt-2">Preparando el juego espacial</p>
-        </div>
-      </div>
+      <LoadingScreen 
+        message="Cargando Flappy DOBI..."
+        subMessage={isInitializing ? "Inicializando SDK de Farcaster..." : "Preparando el juego espacial"}
+        showProgress={isInitializing}
+        progress={progress}
+      />
+    );
+  }
+
+  // Show error state if SDK failed to initialize
+  if (sdkError) {
+    return (
+      <LoadingScreen 
+        message="Error de inicialización"
+        subMessage={`${sdkError}. Continuando en modo local...`}
+        showProgress={false}
+      />
     );
   }
 

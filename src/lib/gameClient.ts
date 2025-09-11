@@ -37,7 +37,7 @@ const CLIENT_CONFIG = {
   REQUEST_SECRET: 'dobi-request-secret-2024', // Debe coincidir con el backend
   BASE_URL: process.env.NODE_ENV === 'production' 
     ? 'https://your-domain.com/api' 
-    : 'http://localhost:3000/api',
+    : '/api', // Usar rutas relativas para evitar problemas de CORS
 };
 
 // Store para la sesión del juego
@@ -66,6 +66,9 @@ export async function initializeGameSession(playerAddress: string): Promise<{
         'x-api-key': CLIENT_CONFIG.API_KEY,
       },
       body: JSON.stringify({ playerAddress }),
+    }).catch((fetchError) => {
+      console.warn('Network error during session initialization:', fetchError.message);
+      throw new Error(`Network error: ${fetchError.message}`);
     });
 
     console.log('Session response status:', response.status);
@@ -146,6 +149,11 @@ async function secureRequest<T = any>(
       return { success: false, error: 'Game session not initialized' };
     }
 
+    // Check if session is still active before making the request
+    if (!isSessionActive()) {
+      return { success: false, error: 'Invalid or expired game session' };
+    }
+
     const body = data ? JSON.stringify(data) : '';
     const path = `/api${endpoint}`;
     
@@ -223,7 +231,15 @@ export function isSessionActive(): boolean {
   
   // Verificar que la sesión no haya expirado (24 horas)
   const maxAge = 24 * 60 * 60 * 1000;
-  return Date.now() - gameSession.createdAt < maxAge;
+  const isActive = Date.now() - gameSession.createdAt < maxAge;
+  
+  // Si la sesión expiró, limpiarla
+  if (!isActive) {
+    console.log('Game session expired, clearing session');
+    gameSession = null;
+  }
+  
+  return isActive;
 }
 
 /**
@@ -238,4 +254,25 @@ export function getCurrentSession() {
  */
 export function closeSession() {
   gameSession = null;
+}
+
+/**
+ * Intenta renovar la sesión si está expirada
+ */
+export async function refreshSessionIfNeeded(playerAddress: string): Promise<boolean> {
+  // Always check if session is active, even if gameSession exists
+  if (!gameSession || !isSessionActive()) {
+    console.log('Session expired or invalid, attempting to refresh...');
+    // Clear any invalid session first
+    gameSession = null;
+    const sessionResult = await initializeGameSession(playerAddress);
+    if (sessionResult.success) {
+      console.log('Session refreshed successfully');
+      return true;
+    } else {
+      console.error('Failed to refresh session:', sessionResult.error);
+      return false;
+    }
+  }
+  return true;
 }

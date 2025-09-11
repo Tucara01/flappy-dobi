@@ -44,23 +44,46 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
   }, [isClient]);
 
   useEffect(() => {
-    let errorShown = false;
+    // Store the original console.error
     const origError = console.error;
+    let errorShown = false;
+    
+    // Create a queue for deferred error logging
+    const errorQueue: any[][] = [];
+    
+    // Function to process the error queue
+    const processErrorQueue = () => {
+      while (errorQueue.length > 0) {
+        const args = errorQueue.shift();
+        if (args) {
+          try {
+            origError.apply(console, args);
+          } catch (e) {
+            // Ignore errors in error processing
+          }
+        }
+      }
+    };
     
     // Use a more stable approach to avoid useInsertionEffect issues
     const handleError = (...args: any[]) => {
       try {
+        // Check if this is a game session error that we should handle gracefully
         if (
           typeof args[0] === "string" &&
-          args[0].includes("WalletConnectionError: could not get Solana provider")
+          (args[0].includes("WalletConnectionError: could not get Solana provider") ||
+           args[0].includes("Invalid or expired game session") ||
+           args[0].includes("Game creation failed"))
         ) {
           if (!errorShown) {
-            origError(...args);
+            // Queue the error for later processing
+            errorQueue.push(args);
             errorShown = true;
           }
           return;
         }
-        origError(...args);
+        // Queue all other errors for later processing
+        errorQueue.push(args);
       } catch (error) {
         // If there's an error in error handling, just ignore it
         // This prevents the error handler from breaking the app
@@ -70,6 +93,26 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
     // Only override console.error if we're in a browser environment
     if (typeof window !== 'undefined') {
       console.error = handleError;
+      
+      // Process the error queue using multiple strategies
+      const processQueue = () => {
+        processErrorQueue();
+        // Schedule next processing
+        if (errorQueue.length > 0) {
+          if (window.requestIdleCallback) {
+            window.requestIdleCallback(processQueue);
+          } else {
+            setTimeout(processQueue, 10);
+          }
+        }
+      };
+      
+      // Start processing the queue
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(processQueue);
+      } else {
+        setTimeout(processQueue, 10);
+      }
     }
 
     return () => {

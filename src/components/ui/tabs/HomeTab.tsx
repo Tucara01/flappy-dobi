@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import { Tab } from "../../App";
 import FlappyBirdGame from "../../FlappyBirdGame";
 import { gameAPI, initializeGameSession, isSessionActive } from "../../../lib/gameClient";
+import { APP_SPLASH_URL } from "../../../lib/constants";
 
 interface HomeTabProps {
   setActiveTab: (tab: Tab) => void;
@@ -146,23 +147,39 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
   return (
     <div className="space-y-6 px-4">
       {/* Welcome Section */}
-      <div className="text-center space-y-4">
-        <div className="relative">
+      <div className="text-center space-y-6">
+        {/* DOBI Logo */}
+        <div className="flex justify-center mb-4">
+          <div className="w-20 h-20 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg">
+            <img 
+              src="/splash.png" 
+              alt="DOBI" 
+              className="w-full h-full object-contain p-0.5"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement!.innerHTML = '<span class="text-3xl font-bold text-white">D</span>';
+              }}
+            />
+          </div>
+        </div>
+        
+        {/* Title and Description */}
+        <div className="space-y-3">
           <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
             Welcome to Flappy DOBI!
           </h2>
-          <div className="absolute -top-2 -right-2 text-2xl">🐕</div>
+          <p className="text-gray-300 text-lg">
+            Help DOBI fly through space avoiding obstacles
+          </p>
         </div>
-        <p className="text-gray-300 text-lg">
-          Help DOBI fly through space avoiding obstacles
-        </p>
       </div>
 
       {/* Game Mode Selection */}
-      <div className="space-y-4">
+      <div className="space-y-6">
         <h3 className="text-xl font-semibold text-white text-center">Select your game mode</h3>
         
-        {/* Practice Mode Button */}
+        <div className="grid gap-4">
+          {/* Practice Mode Button */}
         <button 
           onClick={async () => {
             // Initialize session for practice mode if wallet is connected
@@ -206,6 +223,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
             </div>
           </div>
         </button>
+        </div>
       </div>
 
       {/* Stats Section */}

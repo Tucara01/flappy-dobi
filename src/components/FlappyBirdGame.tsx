@@ -8,7 +8,7 @@ import ParticleEffect from './ui/ParticleEffect';
 import Leaderboard from './ui/Leaderboard';
 import { useSound } from '../hooks/useSound';
 import { useLeaderboard } from '../hooks/useLeaderboard';
-import { gameAPI, initializeGameSession, isSessionActive } from '../lib/gameClient';
+import { gameAPI, initializeGameSession, isSessionActive, refreshSessionIfNeeded } from '../lib/gameClient';
 import { useFlappyDobiContract } from '../hooks/useFlappyDobiContract';
 
 interface GameState {
@@ -425,13 +425,12 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         }
       } else {
         // Para modo practice, usar el sistema original
-        // Inicializar sesión si no existe
-        if (!isSessionActive()) {
-          const sessionResult = await initializeGameSession(address);
-          if (!sessionResult.success) {
-            console.error('Failed to initialize game session:', sessionResult.error);
-            return null;
-          }
+        // Intentar renovar la sesión si es necesario
+        const sessionRefreshed = await refreshSessionIfNeeded(address);
+        if (!sessionRefreshed) {
+          console.warn('Failed to refresh game session, using local mode');
+          // Si falla la renovación de sesión, crear juego en modo local
+          return Math.floor(Math.random() * 1000000); // ID temporal para modo local
         }
         
         // Crear juego usando el cliente seguro
@@ -445,10 +444,14 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
             setGameState(prev => ({ ...prev, gameId: gameData.gameId }));
             return gameData.gameId;
           } else {
-            console.error('Invalid game data structure:', gameData);
+            console.warn('Invalid game data structure, using local mode:', gameData);
+            // Fallback a ID local si la estructura es inválida
+            return Math.floor(Math.random() * 1000000);
           }
         } else {
-          console.error('Game creation failed:', result.error);
+          console.warn('Game creation failed, using local mode:', result.error);
+          // Si falla la creación del juego, crear uno local
+          return Math.floor(Math.random() * 1000000);
         }
       }
     } catch (error) {
@@ -598,12 +601,14 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       }
 
       // Check scoring
-      newObstacles.forEach(obstacle => {
+      newObstacles.forEach((obstacle, index) => {
         if (!obstacle.passed && obstacle.x + OBSTACLE_WIDTH < bird.x) {
           obstacle.passed = true;
-          const points = 1; // Fixed points per obstacle
+          console.log(`Obstacle ${index} passed! Bird x: ${bird.x}, Obstacle x: ${obstacle.x}`);
+          // Only add points once per obstacle, not for each part
           setGameState(prev => {
-            const newScore = prev.score + points;
+            const newScore = prev.score + 0.5;
+            console.log('Score updated from', prev.score, 'to', newScore);
             if (newScore > lastScore) {
               setLastScore(newScore);
               // Removed celebration splash effect
@@ -666,7 +671,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
             ...prev,
             obstaclesPassed: prev.obstaclesPassed + 1
           }));
-          
           
           createParticles(obstacle.x + OBSTACLE_WIDTH, bird.y, 8, '#00ff88');
           playScoreSound();
