@@ -21,9 +21,9 @@ export default function App(
       
       try {
         await sdk.actions.ready();
-        console.log('Farcaster Mini App is ready - DOM loaded');
+        // // console.log('Farcaster Mini App is ready - DOM loaded');
       } catch (err) {
-        console.log('Running in localhost mode - Farcaster SDK not available');
+        // // console.log('Running in localhost mode - Farcaster SDK not available');
       }
     };
     

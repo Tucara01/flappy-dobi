@@ -63,7 +63,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
         if (!isSessionActive()) {
           const sessionResult = await initializeGameSession(playerAddress);
           if (!sessionResult.success) {
-            console.error('Failed to initialize game session:', sessionResult.error);
+            // console.error('Failed to initialize game session:', sessionResult.error);
             return;
           }
         }
@@ -74,7 +74,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
           setGameStats(result.data.stats);
         }
       } catch (error) {
-        console.error('Error fetching stats:', error);
+        // console.error('Error fetching stats:', error);
       } finally {
         setIsLoadingStats(false);
       }
@@ -91,14 +91,14 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
     }
 
     try {
-      console.log('Starting bet mode execution...');
+      // // console.log('Starting bet mode execution...');
       
       // Simply switch to bet mode - the ContractStatus component will handle the smart contract interaction
       setGameMode('bet');
-      console.log('Switched to bet mode');
+      // // console.log('Switched to bet mode');
       
     } catch (error) {
-      console.error('Error executing bet mode:', error);
+      // console.error('Error executing bet mode:', error);
       alert('Error executing bet mode. Please try again.');
     }
   };
@@ -147,12 +147,12 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
         
         <ContractStatus 
           onGameCreated={(gameId) => {
-            console.log('Game created with ID:', gameId);
+            // // console.log('Game created with ID:', gameId);
             // Una vez creado el juego, iniciar el juego
             setGameMode('bet-game');
           }}
           onClaimSuccess={() => {
-            console.log('Winnings claimed successfully');
+            // // console.log('Winnings claimed successfully');
             // Volver al home después de reclamar
             setGameMode('home');
           }}
@@ -229,10 +229,10 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
               try {
                 const sessionResult = await initializeGameSession(address);
                 if (!sessionResult.success) {
-                  console.error('Failed to initialize game session:', sessionResult.error);
+                  // console.error('Failed to initialize game session:', sessionResult.error);
                 }
               } catch (error) {
-                console.error('Error initializing session for practice mode:', error);
+                // console.error('Error initializing session for practice mode:', error);
               }
             }
             // Start practice mode

@@ -58,9 +58,9 @@ export function useFarcasterSDK() {
             );
             
             await Promise.race([readyPromise, timeoutPromise]);
-            console.log('Farcaster SDK ready successfully');
+            // // console.log('Farcaster SDK ready successfully');
           } catch (sdkError) {
-            console.warn('Farcaster SDK not available or user rejected:', sdkError);
+            // console.warn('Farcaster SDK not available or user rejected:', sdkError);
             // This is expected in localhost mode or when user rejects, so we don't treat it as an error
           }
 
@@ -75,7 +75,7 @@ export function useFarcasterSDK() {
         }
       } catch (error) {
         if (isMounted) {
-          console.error('Error initializing Farcaster SDK:', error);
+          // console.error('Error initializing Farcaster SDK:', error);
           setState(prev => ({ 
             ...prev, 
             isReady: true, // Still allow the app to work

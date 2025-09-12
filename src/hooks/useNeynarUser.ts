@@ -53,7 +53,6 @@ export function useNeynarUser(context?: { user?: { fid?: number } }) {
         } else {
           setError(err.message);
         }
-        console.warn('useNeynarUser fetch error:', err);
         
         // Set a fallback user to prevent app from breaking
         setUser({

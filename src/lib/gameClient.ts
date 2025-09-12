@@ -56,8 +56,6 @@ export async function initializeGameSession(playerAddress: string): Promise<{
   error?: string;
 }> {
   try {
-    console.log('Initializing game session for:', playerAddress);
-    console.log('Using BASE_URL:', CLIENT_CONFIG.BASE_URL);
     
     const response = await fetch(`${CLIENT_CONFIG.BASE_URL}/auth/session`, {
       method: 'POST',
@@ -67,16 +65,11 @@ export async function initializeGameSession(playerAddress: string): Promise<{
       },
       body: JSON.stringify({ playerAddress }),
     }).catch((fetchError) => {
-      console.warn('Network error during session initialization:', fetchError.message);
       throw new Error(`Network error: ${fetchError.message}`);
     });
 
-    console.log('Session response status:', response.status);
-    console.log('Session response ok:', response.ok);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Session error response:', errorText);
       let errorData;
       try {
         errorData = JSON.parse(errorText);
@@ -87,7 +80,6 @@ export async function initializeGameSession(playerAddress: string): Promise<{
     }
 
     const data = await response.json();
-    console.log('Session created successfully:', data);
     
     gameSession = {
       sessionId: data.sessionId,
@@ -97,7 +89,6 @@ export async function initializeGameSession(playerAddress: string): Promise<{
 
     return { success: true, sessionId: data.sessionId };
   } catch (error) {
-    console.error('Error initializing game session:', error);
     return { success: false, error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}` };
   }
 }
@@ -171,7 +162,6 @@ async function secureRequest<T = any>(
     const responseData = await response.json();
     return { success: true, data: responseData };
   } catch (error) {
-    console.error('Secure request error:', error);
     return { success: false, error: 'Network error' };
   }
 }
@@ -235,7 +225,6 @@ export function isSessionActive(): boolean {
   
   // Si la sesión expiró, limpiarla
   if (!isActive) {
-    console.log('Game session expired, clearing session');
     gameSession = null;
   }
   
@@ -262,15 +251,12 @@ export function closeSession() {
 export async function refreshSessionIfNeeded(playerAddress: string): Promise<boolean> {
   // Always check if session is active, even if gameSession exists
   if (!gameSession || !isSessionActive()) {
-    console.log('Session expired or invalid, attempting to refresh...');
     // Clear any invalid session first
     gameSession = null;
     const sessionResult = await initializeGameSession(playerAddress);
     if (sessionResult.success) {
-      console.log('Session refreshed successfully');
       return true;
     } else {
-      console.error('Failed to refresh session:', sessionResult.error);
       return false;
     }
   }

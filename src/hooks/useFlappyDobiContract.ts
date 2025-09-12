@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { parseUnits, createPublicClient, http } from 'viem';
@@ -323,29 +324,14 @@ export function useFlappyDobiContract() {
 
   // Actualizar contractGameId cuando se confirme la transacción
   useEffect(() => {
-    console.log('🔄 useEffect triggered with values:', { 
-      isConfirmed, 
-      activeGameId, 
-      address, 
-      hash,
-      contractGameId 
-    });
-    
     if (isConfirmed && activeGameId) {
       const gameId = Number(activeGameId);
-      console.log('🎯 Transaction confirmed, updating contract game ID:', gameId);
       setContractGameId(gameId);
       
       // Notificar al backend sobre el nuevo juego de bet mode
       if (address && hash) {
-        console.log('📤 Registering game with backend:', { gameId, address, hash });
-        console.log('🔄 About to call registerGameWithBackend...');
         registerGameWithBackend(gameId, hash as string);
-      } else {
-        console.warn('⚠️ Missing address or hash for backend registration:', { address, hash });
       }
-    } else {
-      console.log('🔄 useEffect triggered but conditions not met:', { isConfirmed, activeGameId, address, hash });
     }
   }, [isConfirmed, activeGameId, address, hash]);
 
@@ -360,9 +346,6 @@ export function useFlappyDobiContract() {
         status: 'active'
       };
       
-      console.log('📤 Registering bet game with backend:', registrationPayload);
-      console.log('🌐 Making POST request to /api/games/bet...');
-      
       const response = await fetch('/api/games/bet', {
         method: 'POST',
         headers: {
@@ -371,25 +354,11 @@ export function useFlappyDobiContract() {
         body: JSON.stringify(registrationPayload)
       });
       
-      console.log('📥 Backend registration response:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok
-      });
-      
       if (response.ok) {
         const responseData = await response.json();
-        console.log('✅ Bet game registered with backend successfully:', responseData);
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Failed to register bet game with backend:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText
-        });
       }
     } catch (error) {
-      console.error('❌ Error registering bet game with backend:', error);
+      // Silently handle errors
     }
   };
 
@@ -397,7 +366,6 @@ export function useFlappyDobiContract() {
   useEffect(() => {
     if (isConfirmed && activeGameId && address && hash && !contractGameId) {
       const gameId = Number(activeGameId);
-      console.log('🔄 Secondary useEffect: activeGameId updated after confirmation:', gameId);
       setContractGameId(gameId);
       registerGameWithBackend(gameId, hash as string);
     }
@@ -413,18 +381,16 @@ export function useFlappyDobiContract() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.game) {
-          console.log('✅ Game already registered in backend:', gameId);
           return;
         }
       }
       
       // Si no está registrado, registrarlo
-      console.log('🔄 Game not found in backend, registering now:', gameId);
       if (address && hash) {
         await registerGameWithBackend(gameId, hash as string);
       }
     } catch (error) {
-      console.error('❌ Error checking/registering game:', error);
+      // Silently handle errors
     }
   }, [address, hash, registerGameWithBackend]);
 
@@ -446,9 +412,6 @@ export function useFlappyDobiContract() {
   // Usar exactamente 3500 DOBI (no leer del contrato)
   const actualBetAmount = BigInt(3500 * 1e18); // 3500 DOBI con 18 decimales
   
-  console.log('Bet amount from contract:', betAmount);
-  console.log('Actual bet amount:', actualBetAmount);
-  console.log('Bet amount in DOBI:', actualBetAmount ? (Number(actualBetAmount) / 1e18).toFixed(0) : 3500);
 
   // Hook para leer el balance de DOBI del usuario
   const { data: userDobiBalance } = useReadContract({
@@ -469,11 +432,9 @@ export function useFlappyDobiContract() {
   // Actualizar allowance cuando se confirme una transacción de aprobación
   useEffect(() => {
     if (isConfirmed && hash) {
-      console.log('🔄 Transaction confirmed, refetching allowance...');
       // Refetch allowance después de que se confirme cualquier transacción
       // Usar un pequeño delay para asegurar que la transacción esté completamente procesada
       setTimeout(() => {
-        console.log('🔄 Refetching allowance after delay...');
         refetchAllowance();
       }, 2000); // 2 segundos de delay
     }
@@ -505,7 +466,6 @@ export function useFlappyDobiContract() {
 
       return hash;
     } catch (err) {
-      console.error('Error approving DOBI:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       return null;
     } finally {
@@ -530,7 +490,6 @@ export function useFlappyDobiContract() {
         functionName: 'createGame',
       });
 
-      console.log('🎮 Game creation transaction initiated');
 
       // Retornar el hash actual si existe, sino esperar a que se actualice
       if (hash) {
@@ -539,7 +498,6 @@ export function useFlappyDobiContract() {
 
       return null;
     } catch (err) {
-      console.error('Error creating game:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       return null;
     } finally {
@@ -567,7 +525,6 @@ export function useFlappyDobiContract() {
 
       return hash;
     } catch (err) {
-      console.error('Error claiming winnings:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       return null;
     } finally {
@@ -595,7 +552,6 @@ export function useFlappyDobiContract() {
 
       return hash;
     } catch (err) {
-      console.error('Error setting game result:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       return null;
     } finally {

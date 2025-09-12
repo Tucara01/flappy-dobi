@@ -26,7 +26,6 @@ export async function getNeynarUser(fid: number): Promise<User | null> {
     const usersResponse = await client.fetchBulkUsers({ fids: [fid] });
     return usersResponse.users[0];
   } catch (error) {
-    console.error('Error getting Neynar user:', error);
     return null;
   }
 }

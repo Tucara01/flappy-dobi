@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('Error creating game:', error);
+    // console.error('Error creating game:', error);
     return NextResponse.json(
       { 
         error: 'Error interno del servidor',
@@ -162,7 +162,7 @@ export async function PUT(request: Request) {
     });
 
   } catch (error) {
-    console.error('Error updating game:', error);
+    // console.error('Error updating game:', error);
     return NextResponse.json(
       { error: 'Error interno del servidor' },
       { status: 500 }

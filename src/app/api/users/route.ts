@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   
   // If no API key, return a mock user for development
   if (!apiKey) {
-    console.warn('Neynar API key not configured, returning mock user data');
+    // console.warn('Neynar API key not configured, returning mock user data');
     if (!fids) {
       return NextResponse.json(
         { error: 'FIDs parameter is required' },
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ users });
   } catch (error) {
-    console.error('Failed to fetch users:', error);
+    // console.error('Failed to fetch users:', error);
     
     // If API fails, return mock data as fallback
     const fidsArray = fids.split(',').map(fid => parseInt(fid.trim()));

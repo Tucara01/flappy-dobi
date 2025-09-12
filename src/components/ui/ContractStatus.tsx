@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { useFlappyDobiContract } from '../../hooks/useFlappyDobiContract';
 
@@ -9,6 +9,8 @@ interface ContractStatusProps {
 
 const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimSuccess }) => {
   const { address } = useAccount();
+  const [isCreatingGame, setIsCreatingGame] = useState(false);
+  const [hasCalledOnGameCreated, setHasCalledOnGameCreated] = useState(false);
   const {
     approveDobi,
     createGame,
@@ -26,90 +28,86 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
   } = useFlappyDobiContract();
 
   // Debug logging
-  console.log('ContractStatus render:', {
-    hasEnoughAllowance,
-    userDobiAllowance,
-    betAmount,
-    isConfirmed,
-    hasActiveGame,
-    currentGame: currentGame?.status
-  });
+  // console.log('ContractStatus render:', {
+  //   hasEnoughAllowance,
+  //   userDobiAllowance,
+  //   betAmount,
+  //   isConfirmed,
+  //   hasActiveGame,
+  //   currentGame: currentGame?.status
+  // });
+
+  // Detectar cuando la aprobación se confirma y crear el juego automáticamente
+  useEffect(() => {
+    if (isConfirmed && hasEnoughAllowance && !hasActiveGame && !isCreatingGame) {
+      // La aprobación se confirmó, crear el juego automáticamente
+      const createGameAfterApproval = async () => {
+        try {
+          // Activar loading inmediatamente para evitar que aparezca el botón amarillo
+          setIsCreatingGame(true);
+          const hash = await createGame();
+          if (hash) {
+            // // console.log('Game creation transaction sent after approval:', hash);
+          }
+        } catch (error) {
+          // console.error('Error creating game after approval:', error);
+          setIsCreatingGame(false);
+        }
+      };
+      createGameAfterApproval();
+    }
+  }, [isConfirmed, hasEnoughAllowance, hasActiveGame, isCreatingGame, createGame]);
+
+  // Resetear estado cuando el juego termina (gana o pierde)
+  useEffect(() => {
+    if (hasActiveGame && currentGame?.status && currentGame.status !== 'Pending') {
+      // El juego terminó (ganó o perdió), resetear estado para permitir nuevo juego
+      setHasCalledOnGameCreated(false);
+    }
+  }, [hasActiveGame, currentGame?.status]);
+
+  // Activar loading cuando la transacción de creación se confirma
+  useEffect(() => {
+    if (isConfirmed && !hasActiveGame && hasEnoughAllowance) {
+      // La transacción de creación se confirmó pero aún no hay juego activo, activar loading
+      setIsCreatingGame(true);
+    } else if (hasActiveGame && isCreatingGame) {
+      // Ya hay juego activo, desactivar loading y llamar callback
+      setIsCreatingGame(false);
+      if (onGameCreated && activeGameId) {
+        onGameCreated(activeGameId);
+      }
+    }
+  }, [isConfirmed, hasActiveGame, isCreatingGame, activeGameId, onGameCreated, hasEnoughAllowance]);
 
   const handleApprove = async () => {
     try {
+      // Resetear estado para nuevo juego
+      setHasCalledOnGameCreated(false);
       const hash = await approveDobi();
       if (hash) {
-        console.log('DOBI approval transaction sent:', hash);
-        // Mostrar mensaje de que se está creando el juego
-        alert('Tokens aprobados! Creando juego automáticamente...');
+        // // console.log('DOBI approval transaction sent:', hash);
         
-        // Esperar un poco para que se confirme la transacción
-        setTimeout(async () => {
-          try {
-            // Después de aprobar, crear el juego automáticamente
-            const gameHash = await createGame();
-            if (gameHash) {
-              console.log('Game creation transaction sent:', gameHash);
-              alert('Juego creado! Iniciando partida...');
-              
-              // Esperar un poco más para que se confirme la creación del juego
-              setTimeout(() => {
-                if (onGameCreated && activeGameId) {
-                  console.log('Calling onGameCreated with gameId:', activeGameId);
-                  onGameCreated(activeGameId);
-                } else if (onGameCreated && !activeGameId) {
-                  console.warn('Game created but activeGameId not available yet, waiting...');
-                  // Wait a bit more and try again
-                  setTimeout(() => {
-                    if (onGameCreated && activeGameId) {
-                      console.log('Calling onGameCreated with gameId (retry):', activeGameId);
-                      onGameCreated(activeGameId);
-                    } else {
-                      console.error('Failed to get activeGameId after game creation');
-                    }
-                  }, 3000);
-                }
-              }, 2000);
-            }
-          } catch (error) {
-            console.error('Error creating game after approval:', error);
-            alert('Error creando el juego. Intenta crear el juego manualmente.');
-          }
-        }, 5000); // Esperar 5 segundos para que se confirme la aprobación
+        // Esperar a que se confirme la aprobación, luego crear el juego automáticamente
+        // El useEffect detectará cuando isConfirmed cambie y hasEnoughAllowance sea true
       }
     } catch (error) {
-      console.error('Error approving DOBI:', error);
+      // console.error('Error approving DOBI:', error);
     }
   };
 
   const handleCreateGame = async () => {
     try {
+      // Resetear estado para nuevo juego
+      setHasCalledOnGameCreated(false);
       const hash = await createGame();
       if (hash) {
-        console.log('Game creation transaction sent:', hash);
-        alert('Juego creado! Iniciando partida...');
-        
-        // Esperar un poco para que se confirme la creación del juego
-        setTimeout(() => {
-          if (onGameCreated && activeGameId) {
-            console.log('Calling onGameCreated with gameId:', activeGameId);
-            onGameCreated(activeGameId);
-          } else if (onGameCreated && !activeGameId) {
-            console.warn('Game created but activeGameId not available yet, waiting...');
-            // Wait a bit more and try again
-            setTimeout(() => {
-              if (onGameCreated && activeGameId) {
-                console.log('Calling onGameCreated with gameId (retry):', activeGameId);
-                onGameCreated(activeGameId);
-              } else {
-                console.error('Failed to get activeGameId after game creation');
-              }
-            }, 3000);
-          }
-        }, 3000);
+        // // console.log('Game creation transaction sent:', hash);
+        // No activar loading aquí, se activará cuando isConfirmed sea true
       }
     } catch (error) {
-      console.error('Error creating game:', error);
+      // console.error('Error creating game:', error);
+      setIsCreatingGame(false);
     }
   };
 
@@ -119,13 +117,13 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
     try {
       const hash = await claimWinnings(activeGameId);
       if (hash) {
-        console.log('Claim winnings transaction sent:', hash);
+        // // console.log('Claim winnings transaction sent:', hash);
         if (onClaimSuccess) {
           onClaimSuccess();
         }
       }
     } catch (error) {
-      console.error('Error claiming winnings:', error);
+      // console.error('Error claiming winnings:', error);
     }
   };
 
@@ -190,7 +188,8 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
 
       {/* Action Buttons */}
       <div className="space-y-3">
-        {!hasEnoughAllowance && (
+        {/* Show approve/create buttons only when no active game OR when game is lost, AND not creating game */}
+        {(!hasActiveGame || (hasActiveGame && currentGame?.status === 'Lost')) && !hasEnoughAllowance && !isCreatingGame && (
           <button
             onClick={handleApprove}
             disabled={isLoading}
@@ -207,7 +206,7 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
           </button>
         )}
 
-        {!hasActiveGame && hasEnoughAllowance && (
+        {(!hasActiveGame || (hasActiveGame && currentGame?.status === 'Lost')) && hasEnoughAllowance && !isCreatingGame && (
           <button
             onClick={handleCreateGame}
             disabled={isLoading}
@@ -224,6 +223,7 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
           </button>
         )}
 
+        {/* Show claim button only when game is won */}
         {hasActiveGame && currentGame?.status === 'Won' && (
           <button
             onClick={handleClaimWinnings}
@@ -241,31 +241,30 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
           </button>
         )}
 
+        {/* Show loading state when creating game */}
+        {isCreatingGame && (
+          <div className="space-y-3">
+            <div className="text-center text-gray-600 py-3">
+              <div className="animate-pulse text-lg font-medium">⏳ Loading game...</div>
+            </div>
+            <button
+              disabled
+              className="w-full bg-gray-400 text-white font-bold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-3 text-lg"
+            >
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              Creating Game...
+            </button>
+          </div>
+        )}
 
+
+        {/* Mostrar mensaje cuando el juego está en progreso */}
         {hasActiveGame && currentGame?.status === 'Pending' && (
           <div className="space-y-3">
             <div className="text-center text-gray-600 py-3">
-              <div className="animate-pulse text-lg font-medium">⏳ Game in progress...</div>
+              <div className="text-lg font-medium">🎮 Game is running...</div>
+              <div className="text-sm text-gray-500">Complete the game to see results</div>
             </div>
-            <button
-              onClick={() => {
-                if (onGameCreated && activeGameId) {
-                  console.log('Going to existing game with ID:', activeGameId);
-                  onGameCreated(activeGameId);
-                }
-              }}
-              disabled={isLoading}
-              className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-3 text-lg"
-            >
-              {isLoading ? (
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-              ) : (
-                <>
-                  <span>🎮</span>
-                  Continue Game (ID: {activeGameId})
-                </>
-              )}
-            </button>
           </div>
         )}
       </div>

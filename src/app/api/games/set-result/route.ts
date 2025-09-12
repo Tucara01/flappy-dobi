@@ -74,11 +74,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { gameId, won, playerAddress } = body;
 
-    console.log(`🎯 SET-RESULT API called:`, { gameId, won, playerAddress });
+    // console.log(`🎯 SET-RESULT API called:`, { gameId, won, playerAddress });
 
     // Validar datos requeridos
     if (!gameId || won === undefined || !playerAddress) {
-      console.error('❌ Missing required fields:', { gameId, won, playerAddress });
+      // console.error('❌ Missing required fields:', { gameId, won, playerAddress });
       return NextResponse.json(
         { error: 'Missing required fields: gameId, won, playerAddress' },
         { status: 400 }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el juego existe y está en estado Pending
-    console.log(`🔍 Reading game data from contract for gameId: ${gameId}`);
+    // console.log(`🔍 Reading game data from contract for gameId: ${gameId}`);
     const gameData = await publicClient.readContract({
       address: CONTRACT_ADDRESS as `0x${string}`,
       abi: CONTRACT_ABI,
@@ -94,10 +94,10 @@ export async function POST(request: NextRequest) {
       args: [BigInt(gameId)],
     });
 
-    console.log(`📋 Game data from contract:`, gameData);
+    // console.log(`📋 Game data from contract:`, gameData);
 
     if (!gameData) {
-      console.error('❌ Game not found in contract');
+      // console.error('❌ Game not found in contract');
       return NextResponse.json(
         { error: 'Game not found' },
         { status: 404 }
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
 
     // Verificar que el juego está en estado Pending (0)
     if (gameData[1] !== 0) {
-      console.error(`❌ Game already resolved. Status: ${gameData[1]}`);
+      // console.error(`❌ Game already resolved. Status: ${gameData[1]}`);
       return NextResponse.json(
         { error: 'Game already resolved' },
         { status: 400 }
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
     // Verificar que el jugador es el correcto
     if (gameData[0].toLowerCase() !== playerAddress.toLowerCase()) {
-      console.error(`❌ Player address mismatch. Contract: ${gameData[0]}, Request: ${playerAddress}`);
+      // console.error(`❌ Player address mismatch. Contract: ${gameData[0]}, Request: ${playerAddress}`);
       return NextResponse.json(
         { error: 'Player address does not match game player' },
         { status: 400 }
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Establecer el resultado en el contrato
-    console.log(`🚀 Calling setResult on contract: gameId=${gameId}, won=${won}`);
+    // console.log(`🚀 Calling setResult on contract: gameId=${gameId}, won=${won}`);
     const hash = await walletClient.writeContract({
       address: CONTRACT_ADDRESS as `0x${string}`,
       abi: CONTRACT_ABI,
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       args: [BigInt(gameId), won],
     });
 
-    console.log(`✅ Game ${gameId} result set: ${won ? 'WON' : 'LOST'} - TX: ${hash}`);
+    // console.log(`✅ Game ${gameId} result set: ${won ? 'WON' : 'LOST'} - TX: ${hash}`);
 
     return NextResponse.json({
       success: true,
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error setting game result:', error);
+    // console.error('Error setting game result:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error getting game status:', error);
+    // console.error('Error getting game status:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

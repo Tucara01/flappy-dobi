@@ -34,12 +34,10 @@ export class BetGameMonitor {
    */
   start(): void {
     if (this.isRunning) {
-      console.warn('Bet game monitor is already running');
       return;
     }
 
     this.isRunning = true;
-    console.log('Starting bet game monitor...');
 
     this.intervalId = setInterval(async () => {
       await this.checkGames();
@@ -55,7 +53,6 @@ export class BetGameMonitor {
       this.intervalId = null;
     }
     this.isRunning = false;
-    console.log('Bet game monitor stopped');
   }
 
   /**
@@ -66,21 +63,18 @@ export class BetGameMonitor {
       const response = await fetch(`${this.config.apiBaseUrl}/api/games/bet/monitor?status=active`);
       
       if (!response.ok) {
-        console.error('Failed to fetch active games:', response.statusText);
         return;
       }
 
       const data = await response.json();
       const activeGames: BetGame[] = data.games || [];
 
-      console.log(`Checking ${activeGames.length} active bet games...`);
-
       for (const game of activeGames) {
         await this.checkGame(game);
       }
 
     } catch (error) {
-      console.error('Error checking games:', error);
+      // Silently handle errors
     }
   }
 
@@ -94,18 +88,12 @@ export class BetGameMonitor {
 
       // Verificar si el juego ha expirado por tiempo
       if (gameAge > this.config.maxGameDuration) {
-        console.log(`Game ${game.gameId} expired after ${gameAge}ms`);
         await this.updateGameStatus(game.gameId, 0, 'lost');
         return;
       }
 
-      // Verificar el estado del juego en el contrato inteligente
-      // Aquí podrías hacer una llamada al contrato para verificar el estado
-      // Por ahora, solo logueamos la información
-      console.log(`Game ${game.gameId}: Player ${game.playerAddress}, Age: ${gameAge}ms`);
-
     } catch (error) {
-      console.error(`Error checking game ${game.gameId}:`, error);
+      // Silently handle errors
     }
   }
 
@@ -126,14 +114,12 @@ export class BetGameMonitor {
         })
       });
 
-      if (response.ok) {
-        console.log(`Game ${gameId} updated: ${result} with score ${score}`);
-      } else {
-        console.error(`Failed to update game ${gameId}:`, await response.text());
+      if (!response.ok) {
+        // Silently handle update errors
       }
 
     } catch (error) {
-      console.error(`Error updating game ${gameId}:`, error);
+      // Silently handle errors
     }
   }
 
@@ -157,7 +143,6 @@ export class BetGameMonitor {
       };
 
     } catch (error) {
-      console.error('Error getting monitor stats:', error);
       return { active: 0, completed: 0, total: 0 };
     }
   }

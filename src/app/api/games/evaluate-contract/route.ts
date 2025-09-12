@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     // Verificar que el score sea mayor o igual a 50
     const won = score >= 50;
     
-    console.log(`Evaluating contract game ${gameId}: score=${score}, won=${won}`);
+    // console.log(`Evaluating contract game ${gameId}: score=${score}, won=${won}`);
 
     // Llamar al endpoint interno para establecer el resultado
     const setResultResponse = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/games/set-result`, {
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error evaluating contract:', error);
+    // console.error('Error evaluating contract:', error);
     return NextResponse.json(
       { 
         success: false, 

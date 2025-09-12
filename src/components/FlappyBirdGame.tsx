@@ -2,7 +2,6 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
-import NumberDisplay from './ui/NumberDisplay';
 import AnimatedText from './ui/AnimatedText';
 import ParticleEffect from './ui/ParticleEffect';
 import Leaderboard from './ui/Leaderboard';
@@ -249,7 +248,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       });
     }
     
-    console.log('Created stars:', newStars.length, 'for canvas:', canvasWidth, 'x', canvasHeight, 'using grid:', gridCols, 'x', gridRows);
     return newStars;
   }, []);
 
@@ -350,11 +348,9 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           }
           img.src = imagePath;
           
-          console.log(`Loading image: ${imagePath}`);
           
           await new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
-              console.warn(`Image load timeout: ${imagePath}`);
               resolve(null); // Continue even if image fails to load
             }, 5000); // 5 second timeout
             
@@ -365,15 +361,12 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
             
             img.onerror = () => {
               clearTimeout(timeout);
-              console.warn(`Failed to load image: ${imagePath}`);
               resolve(null); // Continue even if image fails to load
             };
           });
           
           if (img.complete && img.naturalHeight !== 0) {
             loadedImages[name] = img;
-          } else {
-            console.warn(`Image not properly loaded: ${imagePath}`);
           }
         }
 
@@ -384,19 +377,15 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         const canvas = canvasRef.current;
         if (canvas) {
           const initialStars = createStars(canvas.width, canvas.height);
-          console.log('Creating stars:', initialStars.length);
           setStars(initialStars);
         } else {
-          console.log('Canvas not available for stars initialization');
           // Fallback: create stars with default dimensions
           const fallbackStars = createStars(800, 600);
-          console.log('Creating fallback stars:', fallbackStars.length);
           setStars(fallbackStars);
         }
         
         // App ready signal is now handled by the main App component
       } catch (error) {
-        console.error('Error loading images:', error);
         // Set images loaded anyway to prevent infinite loading
         setImagesLoaded(true);
       }
@@ -423,12 +412,10 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   const createGame = useCallback(async (mode: 'practice' | 'bet' = 'bet') => {
     try {
       const address = playerAddress || '0x0000000000000000000000000000000000000000';
-      console.log('Creating game for player:', address, 'mode:', mode);
       
       if (mode === 'bet') {
         // Para modo bet, verificar si ya tienes un juego activo
         if (hasActiveGame && contractGameId) {
-          console.log('Using existing bet game with ID:', contractGameId);
           setGameState(prev => ({ ...prev, gameId: contractGameId }));
           
           // Asegurar que el juego esté registrado en el backend
@@ -438,14 +425,11 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         }
         
         // Si no tienes juego activo, crear uno nuevo
-        console.log('Creating new bet game with DOBI smart contract...');
         
         // Verificar si tiene suficiente allowance
         if (!hasEnoughAllowance) {
-          console.log('Approving DOBI tokens first...');
           const approveHash = await approveDobi();
           if (!approveHash) {
-            console.error('Failed to approve DOBI tokens');
             return null;
           }
           // Esperar un poco para que se confirme la aprobación
@@ -454,22 +438,17 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         
         const contractResult = await createContractGame();
         if (contractResult && contractResult.hash) {
-          console.log('Game creation successful with hash:', contractResult.hash);
-          console.log('Game ID from contract:', contractResult.gameId);
           
           // Para modo bet, el gameId real se obtendrá cuando se confirme la transacción
           // Por ahora, usamos 0 como placeholder
           const gameId = contractResult.gameId || 0;
-          console.log('Using game ID for game state:', gameId);
           
           setGameState(prev => ({ ...prev, gameId }));
           
           // El registro con el backend se hará automáticamente cuando se confirme la transacción
-          console.log('⏳ Waiting for transaction confirmation to register with backend...');
           
           return gameId;
         } else {
-          console.error('Failed to create contract game');
           return null;
         }
       } else {
@@ -477,7 +456,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         // Intentar renovar la sesión si es necesario
         const sessionRefreshed = await refreshSessionIfNeeded(address);
         if (!sessionRefreshed) {
-          console.warn('Failed to refresh game session, using local mode');
           // Si falla la renovación de sesión, crear juego en modo local
           return Math.floor(Math.random() * 1000000); // ID temporal para modo local
         }
@@ -489,22 +467,19 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           // Type guard to ensure data has the expected structure
           const gameData = result.data as { gameId: number };
           if (typeof gameData === 'object' && gameData !== null && typeof gameData.gameId === 'number') {
-            console.log('Game created successfully:', gameData);
             setGameState(prev => ({ ...prev, gameId: gameData.gameId }));
             return gameData.gameId;
           } else {
-            console.warn('Invalid game data structure, using local mode:', gameData);
             // Fallback a ID local si la estructura es inválida
             return Math.floor(Math.random() * 1000000);
           }
         } else {
-          console.warn('Game creation failed, using local mode:', result.error);
           // Si falla la creación del juego, crear uno local
           return Math.floor(Math.random() * 1000000);
         }
       }
     } catch (error) {
-      console.error('Error creating game:', error);
+      // Silently handle errors
     }
     return null;
   }, [createContractGame, contractGameId, hasEnoughAllowance, approveDobi]);
@@ -513,10 +488,10 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     try {
       const result = await gameAPI.updateGameScore(gameId, score);
       if (!result.success) {
-        console.error('Error updating game score:', result.error);
+        // Silently handle errors
       }
     } catch (error) {
-      console.error('Error updating game score:', error);
+      // Silently handle errors
     }
   }, []);
 
@@ -525,12 +500,10 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     try {
       const hash = await claimWinnings(gameId);
       if (hash) {
-        console.log('Prize claimed with hash:', hash);
         return true;
       }
       return false;
     } catch (error) {
-      console.error('Error claiming contract reward:', error);
       return false;
     }
   }, [claimWinnings]);
@@ -549,14 +522,12 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           alert(`¡Premio reclamado! Recompensa: ${claimData.rewardAmount / 1e6} USDC`);
           setGameState(prev => ({ ...prev, canClaimReward: false }));
         } else {
-          console.error('Invalid claim data structure:', claimData);
           alert('Error: Datos de recompensa inválidos');
         }
       } else {
         alert(`Error: ${result.error}`);
       }
     } catch (error) {
-      console.error('Error claiming reward:', error);
       alert('Error al reclamar premio');
     }
   }, [gameState.gameId]);
@@ -613,13 +584,13 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           
           // Notificar al backend si es un juego de bet mode
           if (gameMode === 'bet' && contractGameId && prev.gameId) {
-            console.log('🔴 COLLISION - Notifying backend of bet game loss:', {
-              gameId: contractGameId,
-              score: prev.score,
-              result: 'lost',
-              gameMode: gameMode,
-              timestamp: new Date().toISOString()
-            });
+            // console.log('🔴 COLLISION - Notifying backend of bet game loss:', {
+            //   gameId: contractGameId,
+            //   score: prev.score,
+            //   result: 'lost',
+            //   gameMode: gameMode,
+            //   timestamp: new Date().toISOString()
+            // });
             
             const requestBody = { 
               gameId: contractGameId, 
@@ -629,11 +600,11 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               // El backend determinará automáticamente si es 'won' o 'lost' basado en el score
             };
             
-            console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
-            console.log('🎮 Game ID being sent to backend:', contractGameId);
+            // // console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
+            // // console.log('🎮 Game ID being sent to backend:', contractGameId);
             
             if (!contractGameId || contractGameId <= 0) {
-              console.error('❌ Invalid game ID for bet mode:', contractGameId);
+              // console.error('❌ Invalid game ID for bet mode:', contractGameId);
               return newState;
             }
             
@@ -642,26 +613,26 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(requestBody)
             }).then(response => {
-              console.log('📥 Response received:', {
-                status: response.status,
-                statusText: response.statusText,
-                ok: response.ok
-              });
+              // // console.log('📥 Response received:', {
+                //   status: response.status,
+              //   statusText: response.statusText,
+              //   ok: response.ok
+              // });
               
               if (response.ok) {
-                console.log('✅ Bet game loss notification sent successfully');
+                // // console.log('✅ Bet game loss notification sent successfully');
                 return response.json();
               } else {
-                console.error('❌ Failed to notify bet game loss:', response.status);
+                // console.error('❌ Failed to notify bet game loss:', response.status);
                 return response.text().then(text => {
-                  console.error('❌ Error response body:', text);
+                  // console.error('❌ Error response body:', text);
                   throw new Error(`HTTP ${response.status}: ${text}`);
                 });
               }
             }).then(data => {
-              console.log('📋 Response data:', data);
+              // // console.log('📋 Response data:', data);
             }).catch(error => {
-              console.error('❌ Error notifying bet game loss:', error);
+              // console.error('❌ Error notifying bet game loss:', error);
             });
           }
           
@@ -708,11 +679,11 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       newObstacles.forEach((obstacle, index) => {
         if (!obstacle.passed && obstacle.x + OBSTACLE_WIDTH < bird.x) {
           obstacle.passed = true;
-          console.log(`Obstacle ${index} passed! Bird x: ${bird.x}, Obstacle x: ${obstacle.x}`);
+          // // console.log(`Obstacle ${index} passed! Bird x: ${bird.x}, Obstacle x: ${obstacle.x}`);
           // Only add points once per obstacle, not for each part
           setGameState(prev => {
             const newScore = prev.score + 0.5;
-            console.log('Score updated from', prev.score, 'to', newScore);
+            // // console.log('Score updated from', prev.score, 'to', newScore);
             if (newScore > lastScore) {
               setLastScore(newScore);
               // Removed celebration splash effect
@@ -733,7 +704,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               if (prev.gameId) {
                 if (gameMode === 'bet' && contractGameId) {
                   // Para juegos de bet, notificar al backend sobre la victoria
-                  console.log('Player won bet game! Notifying backend...');
+                  // // console.log('Player won bet game! Notifying backend...');
                   
                   // Notificar al backend sobre la victoria (async)
                   fetch('/api/games/bet', {
@@ -746,12 +717,12 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
                     })
                   }).then(response => {
                     if (response.ok) {
-                      console.log('Bet game victory registered with backend');
+                      // // console.log('Bet game victory registered with backend');
                     } else {
                       response.text().then(text => console.warn('Failed to register bet game victory:', text));
                     }
                   }).catch(error => {
-                    console.error('Error registering bet game victory:', error);
+                    // console.error('Error registering bet game victory:', error);
                   });
                   
                   // También enviar al endpoint de evaluación del contrato
@@ -850,13 +821,13 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           
           // Notificar al backend si es un juego de bet mode
           if (gameMode === 'bet' && contractGameId && prev.gameId) {
-            console.log('🔴 COLLISION - Notifying backend of bet game loss:', {
-              gameId: contractGameId,
-              score: prev.score,
-              result: 'lost',
-              gameMode: gameMode,
-              timestamp: new Date().toISOString()
-            });
+            // console.log('🔴 COLLISION - Notifying backend of bet game loss:', {
+            //   gameId: contractGameId,
+            //   score: prev.score,
+            //   result: 'lost',
+            //   gameMode: gameMode,
+            //   timestamp: new Date().toISOString()
+            // });
             
             const requestBody = { 
               gameId: contractGameId, 
@@ -866,11 +837,11 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               // El backend determinará automáticamente si es 'won' o 'lost' basado en el score
             };
             
-            console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
-            console.log('🎮 Game ID being sent to backend:', contractGameId);
+            // // console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
+            // // console.log('🎮 Game ID being sent to backend:', contractGameId);
             
             if (!contractGameId || contractGameId <= 0) {
-              console.error('❌ Invalid game ID for bet mode:', contractGameId);
+              // console.error('❌ Invalid game ID for bet mode:', contractGameId);
               return newState;
             }
             
@@ -879,26 +850,26 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(requestBody)
             }).then(response => {
-              console.log('📥 Response received:', {
-                status: response.status,
-                statusText: response.statusText,
-                ok: response.ok
-              });
+              // // console.log('📥 Response received:', {
+              //   status: response.status,
+              //   statusText: response.statusText,
+              //   ok: response.ok
+              // });
               
               if (response.ok) {
-                console.log('✅ Bet game loss notification sent successfully');
+                // // console.log('✅ Bet game loss notification sent successfully');
                 return response.json();
               } else {
-                console.error('❌ Failed to notify bet game loss:', response.status);
+                // console.error('❌ Failed to notify bet game loss:', response.status);
                 return response.text().then(text => {
-                  console.error('❌ Error response body:', text);
+                  // console.error('❌ Error response body:', text);
                   throw new Error(`HTTP ${response.status}: ${text}`);
                 });
               }
             }).then(data => {
-              console.log('📋 Response data:', data);
+              // // console.log('📋 Response data:', data);
             }).catch(error => {
-              console.error('❌ Error notifying bet game loss:', error);
+              // console.error('❌ Error notifying bet game loss:', error);
             });
           }
           
@@ -931,16 +902,16 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   const handleJump = useCallback(async () => {
     // En modo bet, no permitir reiniciar si el juego ya terminó
     if (gameMode === 'bet' && gameState.isGameOver) {
-      console.log('🚫 Cannot restart game in bet mode after game over');
+      // // console.log('🚫 Cannot restart game in bet mode after game over');
       return;
     }
     
     if (!gameState.isPlaying) {
-      console.log('🎮 Starting new game, mode:', gameMode);
+      // // console.log('🎮 Starting new game, mode:', gameMode);
       
       // Create a new game when starting with the correct mode
       const gameId = await createGame(gameMode);
-      console.log('🎮 Game creation result:', gameId);
+      // // console.log('🎮 Game creation result:', gameId);
       
       // Iniciar el juego independientemente del gameId
       // El gameId se actualizará cuando se confirme la transacción
@@ -957,9 +928,9 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       setObstacles([]);
       
       if (gameId) {
-        console.log('✅ Game started successfully with ID:', gameId);
+        // // console.log('✅ Game started successfully with ID:', gameId);
       } else {
-        console.log('✅ Game started, waiting for transaction confirmation...');
+        // // console.log('✅ Game started, waiting for transaction confirmation...');
       }
       setParticles([]);
       setPowerUps([]);
@@ -1317,7 +1288,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         // Use a small delay to ensure canvas is fully rendered
         const timer = setTimeout(() => {
           const initialStars = createStars(canvas.width, canvas.height);
-          console.log('Initializing stars with canvas dimensions:', canvas.width, 'x', canvas.height);
+          // // console.log('Initializing stars with canvas dimensions:', canvas.width, 'x', canvas.height);
           setStars(initialStars);
         }, 100);
         

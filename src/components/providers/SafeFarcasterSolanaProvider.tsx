@@ -90,9 +90,9 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
       }
     };
 
-    // Only override console.error if we're in a browser environment
+    // Only override // console.error if we're in a browser environment
     if (typeof window !== 'undefined') {
-      console.error = handleError;
+      // console.error = handleError;
       
       // Process the error queue using multiple strategies
       const processQueue = () => {
@@ -118,7 +118,7 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
     return () => {
       try {
         if (typeof window !== 'undefined') {
-          console.error = origError;
+          // console.error = origError;
         }
       } catch (error) {
         // Ignore cleanup errors

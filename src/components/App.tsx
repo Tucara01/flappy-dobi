@@ -92,10 +92,10 @@ export default function App(
       // This will throw if useMiniApp fails
       if (miniAppData && typeof miniAppData === 'object') {
         // Hook worked correctly
-        console.log('useMiniApp loaded successfully');
+        // // console.log('useMiniApp loaded successfully');
       }
     } catch (error) {
-      console.error('useMiniApp error handled:', error);
+      // console.error('useMiniApp error handled:', error);
       // Fallback is already handled by the hook itself
     }
   }, [miniAppData]);
