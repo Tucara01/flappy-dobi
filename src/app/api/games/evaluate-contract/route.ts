@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar que el score sea mayor o igual a 50
-    const won = score >= 50;
+    const won = score >= 49;
     
     // console.log(`Evaluating contract game ${gameId}: score=${score}, won=${won}`);
 

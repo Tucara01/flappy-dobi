@@ -279,7 +279,7 @@ export async function PUT(request: NextRequest) {
     // Determinar resultado automáticamente
     let finalResult = result;
     if (score !== undefined && !result) {
-      finalResult = score >= 50 ? 'won' : 'lost';
+      finalResult = score >= 49 ? 'won' : 'lost';
       // // console.log(`🎯 Auto result: score ${score} = ${finalResult}`);
       
       const autoUpdatedGame = {

@@ -686,8 +686,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               // Removed celebration splash effect
             }
 
-            // Check if player reached 51 points (victory condition)
-            if (newScore >= 51 && !prev.hasWon) {
+            // Check if player reached 50 points (victory condition)
+            if (newScore >= 50 && !prev.hasWon) {
               // Player won! Mark game as won and stop the game
               setGameState(prevState => ({
                 ...prevState,

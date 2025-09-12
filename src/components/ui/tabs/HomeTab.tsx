@@ -212,10 +212,10 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
         <div className="text-center space-y-4">
           <div className="text-6xl">🎮</div>
           <h2 className="text-3xl font-bold text-white">
-            {practiceScore >= 51 ? '🎉 VICTORY! 🎉' : 'Game Over'}
+            {practiceScore >= 50 ? '🎉 VICTORY! 🎉' : 'Game Over'}
           </h2>
           <p className="text-gray-300 text-lg">
-            {practiceScore >= 51 ? 'Congratulations! You reached 51 points!' : 'Better luck next time!'}
+            {practiceScore >= 50 ? 'Congratulations! You reached 50 points!' : 'Better luck next time!'}
           </p>
         </div>
 

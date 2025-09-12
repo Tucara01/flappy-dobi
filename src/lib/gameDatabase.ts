@@ -97,7 +97,7 @@ export const gameDatabase = {
     return betGames.filter(
       game => game.player === player && 
               game.status === 'won' && 
-              game.score >= 50
+              game.score >= 49
     );
   },
 
