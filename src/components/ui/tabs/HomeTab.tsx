@@ -50,6 +50,30 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
   const { address, isConnected } = useAccount();
   const [gameMode, setGameMode] = useState<'home' | 'practice' | 'bet' | 'bet-game'>('home');
   const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [gameResult, setGameResult] = useState<'won' | 'lost' | null>(null);
+
+  // Handle game results
+  const handleGameLost = () => {
+    setGameResult('lost');
+    setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
+  };
+
+  const handleGameWon = () => {
+    setGameResult('won');
+    setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
+  };
+
+  // Reset game result when starting a new game
+  const resetGameResult = () => {
+    setGameResult(null);
+  };
+
+  // Reset game result when starting a new game
+  useEffect(() => {
+    if (gameMode === 'bet-game') {
+      resetGameResult();
+    }
+  }, [gameMode]);
 
   // Get combined stats from API
   useEffect(() => {
@@ -123,6 +147,8 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
           gameMode={gameMode} 
           onBackToHome={() => setGameMode('home')} 
           playerAddress={address}
+          onGameLost={handleGameLost}
+          onGameWon={handleGameWon}
         />
       </div>
     );
@@ -156,6 +182,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
             // Volver al home después de reclamar
             setGameMode('home');
           }}
+          gameResult={gameResult}
         />
       </div>
     );
@@ -181,6 +208,8 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
           gameMode="bet" 
           onBackToHome={() => setGameMode('bet')} 
           playerAddress={address}
+          onGameLost={handleGameLost}
+          onGameWon={handleGameWon}
         />
       </div>
     );

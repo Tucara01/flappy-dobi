@@ -65,9 +65,11 @@ interface FlappyBirdGameProps {
   gameMode?: 'practice' | 'bet';
   onBackToHome?: () => void;
   playerAddress?: string;
+  onGameLost?: () => void;
+  onGameWon?: () => void;
 }
 
-const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBackToHome, playerAddress }) => {
+const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBackToHome, playerAddress, onGameLost, onGameWon }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
@@ -641,6 +643,12 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         
         // Removed red splash effect on ground collision
         playGameOverSound();
+        
+        // Notify parent component that game was lost
+        if (onGameLost) {
+          onGameLost();
+        }
+        
         return { ...prevBird, y: 400 - BIRD_SIZE, velocity: 0 };
       }
 
@@ -749,6 +757,11 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               // Show celebration
               setShowCelebration(true);
               setTimeout(() => setShowCelebration(false), 3000);
+              
+              // Notify parent component that game was won
+              if (onGameWon) {
+                onGameWon();
+              }
               
               // Stop the game loop
               if (gameLoopRef.current) {
@@ -878,6 +891,11 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         
         // Removed red splash effect on obstacle collision
         playCollisionSound();
+        
+        // Notify parent component that game was lost
+        if (onGameLost) {
+          onGameLost();
+        }
       }
     });
 
