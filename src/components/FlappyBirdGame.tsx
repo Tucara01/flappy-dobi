@@ -91,8 +91,20 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     isConfirmed: contractConfirmed,
     error: contractError,
     hasEnoughAllowance,
-    betAmount
+    betAmount,
+    hash,
+    ensureGameRegistered
   } = useFlappyDobiContract();
+  
+  // Ref para mantener el hash de la transacción
+  const contractHashRef = useRef<string | undefined>(hash);
+  
+  // Actualizar la referencia cuando el hash cambie
+  useEffect(() => {
+    if (hash) {
+      contractHashRef.current = hash;
+    }
+  }, [hash]);
   
   
   // Game state
@@ -418,6 +430,10 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         if (hasActiveGame && contractGameId) {
           console.log('Using existing bet game with ID:', contractGameId);
           setGameState(prev => ({ ...prev, gameId: contractGameId }));
+          
+          // Asegurar que el juego esté registrado en el backend
+          ensureGameRegistered(contractGameId);
+          
           return contractGameId;
         }
         
@@ -441,7 +457,9 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           console.log('Game creation successful with hash:', contractResult.hash);
           console.log('Game ID from contract:', contractResult.gameId);
           
-          const gameId = contractResult.gameId;
+          // Para modo bet, el gameId real se obtendrá cuando se confirme la transacción
+          // Por ahora, usamos 0 como placeholder
+          const gameId = contractResult.gameId || 0;
           console.log('Using game ID for game state:', gameId);
           
           setGameState(prev => ({ ...prev, gameId }));
@@ -606,10 +624,18 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
             const requestBody = { 
               gameId: contractGameId, 
               score: prev.score,
-              result: 'lost'
+              playerAddress: playerAddress,
+              contractHash: contractHashRef.current
+              // El backend determinará automáticamente si es 'won' o 'lost' basado en el score
             };
             
             console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
+            console.log('🎮 Game ID being sent to backend:', contractGameId);
+            
+            if (!contractGameId || contractGameId <= 0) {
+              console.error('❌ Invalid game ID for bet mode:', contractGameId);
+              return newState;
+            }
             
             fetch('/api/games/bet', {
               method: 'PUT',
@@ -715,8 +741,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                       gameId: contractGameId, 
-                      score: newScore,
-                      result: 'won'
+                      score: newScore
+                      // El backend determinará automáticamente si es 'won' o 'lost' basado en el score
                     })
                   }).then(response => {
                     if (response.ok) {
@@ -738,7 +764,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
                       playerAddress: playerAddress 
                     })
                   }).catch(error => console.error('Error evaluating contract:', error));
-                } else {
+                } else if (gameMode === 'practice') {
                   // Para juegos de practice, usar el sistema original
                   updateGameScore(prev.gameId, newScore);
                   fetch('/api/games', {
@@ -835,10 +861,18 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
             const requestBody = { 
               gameId: contractGameId, 
               score: prev.score,
-              result: 'lost'
+              playerAddress: playerAddress,
+              contractHash: contractHashRef.current
+              // El backend determinará automáticamente si es 'won' o 'lost' basado en el score
             };
             
             console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
+            console.log('🎮 Game ID being sent to backend:', contractGameId);
+            
+            if (!contractGameId || contractGameId <= 0) {
+              console.error('❌ Invalid game ID for bet mode:', contractGameId);
+              return newState;
+            }
             
             fetch('/api/games/bet', {
               method: 'PUT',
@@ -896,9 +930,14 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   // Handle jump
   const handleJump = useCallback(async () => {
     if (!gameState.isPlaying) {
+      console.log('🎮 Starting new game, mode:', gameMode);
+      
       // Create a new game when starting with the correct mode
       const gameId = await createGame(gameMode);
+      console.log('🎮 Game creation result:', gameId);
       
+      // Iniciar el juego independientemente del gameId
+      // El gameId se actualizará cuando se confirme la transacción
       setGameState(prev => ({ 
         ...prev, 
         isPlaying: true,
@@ -910,6 +949,12 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       }));
       setBird(prev => ({ ...prev, y: 300, velocity: 0, rotation: 0 })); // 2x
       setObstacles([]);
+      
+      if (gameId) {
+        console.log('✅ Game started successfully with ID:', gameId);
+      } else {
+        console.log('✅ Game started, waiting for transaction confirmation...');
+      }
       setParticles([]);
       setPowerUps([]);
       setActivePowerUps({});

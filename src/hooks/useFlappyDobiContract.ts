@@ -323,14 +323,29 @@ export function useFlappyDobiContract() {
 
   // Actualizar contractGameId cuando se confirme la transacción
   useEffect(() => {
+    console.log('🔄 useEffect triggered with values:', { 
+      isConfirmed, 
+      activeGameId, 
+      address, 
+      hash,
+      contractGameId 
+    });
+    
     if (isConfirmed && activeGameId) {
-      console.log('🎯 Transaction confirmed, updating contract game ID:', activeGameId);
-      setContractGameId(Number(activeGameId));
+      const gameId = Number(activeGameId);
+      console.log('🎯 Transaction confirmed, updating contract game ID:', gameId);
+      setContractGameId(gameId);
       
       // Notificar al backend sobre el nuevo juego de bet mode
       if (address && hash) {
-        registerGameWithBackend(Number(activeGameId), hash as string);
+        console.log('📤 Registering game with backend:', { gameId, address, hash });
+        console.log('🔄 About to call registerGameWithBackend...');
+        registerGameWithBackend(gameId, hash as string);
+      } else {
+        console.warn('⚠️ Missing address or hash for backend registration:', { address, hash });
       }
+    } else {
+      console.log('🔄 useEffect triggered but conditions not met:', { isConfirmed, activeGameId, address, hash });
     }
   }, [isConfirmed, activeGameId, address, hash]);
 
@@ -346,6 +361,7 @@ export function useFlappyDobiContract() {
       };
       
       console.log('📤 Registering bet game with backend:', registrationPayload);
+      console.log('🌐 Making POST request to /api/games/bet...');
       
       const response = await fetch('/api/games/bet', {
         method: 'POST',
@@ -355,17 +371,62 @@ export function useFlappyDobiContract() {
         body: JSON.stringify(registrationPayload)
       });
       
+      console.log('📥 Backend registration response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+      
       if (response.ok) {
         const responseData = await response.json();
         console.log('✅ Bet game registered with backend successfully:', responseData);
       } else {
         const errorText = await response.text();
-        console.warn('❌ Failed to register bet game with backend:', errorText);
+        console.error('❌ Failed to register bet game with backend:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText
+        });
       }
     } catch (error) {
       console.error('❌ Error registering bet game with backend:', error);
     }
   };
+
+  // Efecto adicional para manejar el caso donde activeGameId se actualiza después
+  useEffect(() => {
+    if (isConfirmed && activeGameId && address && hash && !contractGameId) {
+      const gameId = Number(activeGameId);
+      console.log('🔄 Secondary useEffect: activeGameId updated after confirmation:', gameId);
+      setContractGameId(gameId);
+      registerGameWithBackend(gameId, hash as string);
+    }
+  }, [isConfirmed, activeGameId, address, hash, contractGameId]);
+
+  // Función de fallback para registrar el juego si no se ha registrado
+  const ensureGameRegistered = useCallback(async (gameId: number) => {
+    if (!gameId || gameId <= 0) return;
+    
+    try {
+      // Verificar si el juego ya está registrado en el backend
+      const response = await fetch(`/api/games/bet?gameId=${gameId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.game) {
+          console.log('✅ Game already registered in backend:', gameId);
+          return;
+        }
+      }
+      
+      // Si no está registrado, registrarlo
+      console.log('🔄 Game not found in backend, registering now:', gameId);
+      if (address && hash) {
+        await registerGameWithBackend(gameId, hash as string);
+      }
+    } catch (error) {
+      console.error('❌ Error checking/registering game:', error);
+    }
+  }, [address, hash, registerGameWithBackend]);
 
   // Hook para leer el estado del juego
   const { data: gameData } = useReadContract({
@@ -387,7 +448,7 @@ export function useFlappyDobiContract() {
   
   console.log('Bet amount from contract:', betAmount);
   console.log('Actual bet amount:', actualBetAmount);
-  console.log('Bet amount in DOBI:', actualBetAmount ? Number(actualBetAmount) / 1e18 : 3500);
+  console.log('Bet amount in DOBI:', actualBetAmount ? (Number(actualBetAmount) / 1e18).toFixed(0) : 3500);
 
   // Hook para leer el balance de DOBI del usuario
   const { data: userDobiBalance } = useReadContract({
@@ -452,7 +513,7 @@ export function useFlappyDobiContract() {
     setError(null);
 
     try {
-      writeContract({
+      const result = writeContract({
         address: CONTRACT_ADDRESS as `0x${string}`,
         abi: CONTRACT_ABI,
         functionName: 'createGame',
@@ -551,6 +612,7 @@ export function useFlappyDobiContract() {
     createGame,
     claimWinnings,
     setGameResult,
+    ensureGameRegistered,
     
     // Estado del juego
     hasActiveGame,
@@ -561,6 +623,7 @@ export function useFlappyDobiContract() {
     // Estado de la transacción
     isLoading: isLoading || isPending || isConfirming,
     isConfirmed,
+    hash,
     error: error || (writeError ? writeError.message : null),
     
     // Información del contrato

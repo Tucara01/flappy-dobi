@@ -44,11 +44,20 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
               
               // Esperar un poco más para que se confirme la creación del juego
               setTimeout(() => {
-                if (onGameCreated) {
-                  // Usar el activeGameId si está disponible, o un valor por defecto
-                  const gameId = activeGameId || 1; // Fallback si no se detecta
-                  console.log('Calling onGameCreated with gameId:', gameId);
-                  onGameCreated(gameId);
+                if (onGameCreated && activeGameId) {
+                  console.log('Calling onGameCreated with gameId:', activeGameId);
+                  onGameCreated(activeGameId);
+                } else if (onGameCreated && !activeGameId) {
+                  console.warn('Game created but activeGameId not available yet, waiting...');
+                  // Wait a bit more and try again
+                  setTimeout(() => {
+                    if (onGameCreated && activeGameId) {
+                      console.log('Calling onGameCreated with gameId (retry):', activeGameId);
+                      onGameCreated(activeGameId);
+                    } else {
+                      console.error('Failed to get activeGameId after game creation');
+                    }
+                  }, 3000);
                 }
               }, 2000);
             }
@@ -72,11 +81,20 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
         
         // Esperar un poco para que se confirme la creación del juego
         setTimeout(() => {
-          if (onGameCreated) {
-            // Usar el activeGameId si está disponible, o un valor por defecto
-            const gameId = activeGameId || 1; // Fallback si no se detecta
-            console.log('Calling onGameCreated with gameId:', gameId);
-            onGameCreated(gameId);
+          if (onGameCreated && activeGameId) {
+            console.log('Calling onGameCreated with gameId:', activeGameId);
+            onGameCreated(activeGameId);
+          } else if (onGameCreated && !activeGameId) {
+            console.warn('Game created but activeGameId not available yet, waiting...');
+            // Wait a bit more and try again
+            setTimeout(() => {
+              if (onGameCreated && activeGameId) {
+                console.log('Calling onGameCreated with gameId (retry):', activeGameId);
+                onGameCreated(activeGameId);
+              } else {
+                console.error('Failed to get activeGameId after game creation');
+              }
+            }, 3000);
           }
         }, 3000);
       }
