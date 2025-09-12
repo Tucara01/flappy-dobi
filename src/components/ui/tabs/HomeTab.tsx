@@ -8,25 +8,13 @@ import FlappyBirdGame from "../../FlappyBirdGame";
 import { gameAPI, initializeGameSession, isSessionActive } from "../../../lib/gameClient";
 import { APP_SPLASH_URL } from "../../../lib/constants";
 import ContractStatus from "../ContractStatus";
+import { getPlayerStats, updatePlayerStats, PlayerStats } from "../../../lib/simpleStats";
 
 interface HomeTabProps {
   setActiveTab: (tab: Tab) => void;
 }
 
-interface GameStats {
-  totalGames: number;
-  bestScore: number;
-  gamesWon: number;
-  totalScore: number;
-}
-
-interface StatsResponse {
-  success: boolean;
-  data?: {
-    stats: GameStats;
-  };
-  error?: string;
-}
+// Removed complex interfaces - using simple PlayerStats from simpleStats.ts
 
 /**
  * HomeTab component displays the main landing content for the Flappy DOBI game.
@@ -41,26 +29,48 @@ interface StatsResponse {
  */
 export function HomeTab({ setActiveTab }: HomeTabProps) {
   const { leaderboard, isLoading } = useLeaderboard();
-  const [gameStats, setGameStats] = useState<GameStats>({
+  const [gameStats, setGameStats] = useState<PlayerStats>({
     totalGames: 0,
     bestScore: 0,
     gamesWon: 0,
-    totalScore: 0
+    totalScore: 0,
+    lastUpdated: Date.now()
   });
   const { address, isConnected } = useAccount();
   const [gameMode, setGameMode] = useState<'home' | 'practice' | 'bet' | 'bet-game'>('home');
-  const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [gameResult, setGameResult] = useState<'won' | 'lost' | null>(null);
 
   // Handle game results
-  const handleGameLost = () => {
-    setGameResult('lost');
-    setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
+  const handleGameLost = (score: number, gameMode: string) => {
+    if (address) {
+      updatePlayerStats(address, score, false);
+      setGameStats(getPlayerStats(address));
+    }
+    
+    // Solo ir a la pestaña de contrato si es bet mode
+    if (gameMode === 'bet') {
+      setGameResult('lost');
+      setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
+    } else {
+      // Para practice mode, solo volver al home
+      setGameMode('home');
+    }
   };
 
-  const handleGameWon = () => {
-    setGameResult('won');
-    setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
+  const handleGameWon = (score: number, gameMode: string) => {
+    if (address) {
+      updatePlayerStats(address, score, true);
+      setGameStats(getPlayerStats(address));
+    }
+    
+    // Solo ir a la pestaña de contrato si es bet mode
+    if (gameMode === 'bet') {
+      setGameResult('won');
+      setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
+    } else {
+      // Para practice mode, solo volver al home
+      setGameMode('home');
+    }
   };
 
   // Reset game result when starting a new game
@@ -75,37 +85,13 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
     }
   }, [gameMode]);
 
-  // Get combined stats from API
+  // Load stats from localStorage
   useEffect(() => {
-    const fetchStats = async () => {
-      setIsLoadingStats(true);
-      try {
-        // Use real wallet address if connected, otherwise use a fallback
-        const playerAddress = address || '0x0000000000000000000000000000000000000000';
-        
-        // Inicializar sesión si no existe
-        if (!isSessionActive()) {
-          const sessionResult = await initializeGameSession(playerAddress);
-          if (!sessionResult.success) {
-            // console.error('Failed to initialize game session:', sessionResult.error);
-            return;
-          }
-        }
-        
-        const result = await gameAPI.getPlayerStats(playerAddress) as StatsResponse;
-        
-        if (result.success && result.data && result.data.stats) {
-          setGameStats(result.data.stats);
-        }
-      } catch (error) {
-        // console.error('Error fetching stats:', error);
-      } finally {
-        setIsLoadingStats(false);
-      }
-    };
-
-    fetchStats();
-  }, [address]); // Re-fetch stats when wallet address changes
+    if (address) {
+      const stats = getPlayerStats(address);
+      setGameStats(stats);
+    }
+  }, [address]);
 
   // Function to execute bet mode smart contract
   const executeBetMode = async () => {
@@ -147,8 +133,8 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
           gameMode={gameMode} 
           onBackToHome={() => setGameMode('home')} 
           playerAddress={address}
-          onGameLost={handleGameLost}
-          onGameWon={handleGameWon}
+          onGameLost={(score) => handleGameLost(score, gameMode)}
+          onGameWon={(score) => handleGameWon(score, gameMode)}
         />
       </div>
     );
@@ -208,8 +194,8 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
           gameMode="bet" 
           onBackToHome={() => setGameMode('bet')} 
           playerAddress={address}
-          onGameLost={handleGameLost}
-          onGameWon={handleGameWon}
+          onGameLost={(score) => handleGameLost(score, 'bet')}
+          onGameWon={(score) => handleGameWon(score, 'bet')}
         />
       </div>
     );
@@ -303,7 +289,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
         <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl p-4 text-center">
           <div className="text-2xl mb-1">🏆</div>
           <div className="text-2xl font-bold text-white">
-            {isLoadingStats ? '...' : gameStats.bestScore}
+            {gameStats.bestScore}
           </div>
           <div className="text-sm text-purple-200">Best Score</div>
         </div>
@@ -312,7 +298,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
         <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl p-4 text-center">
           <div className="text-2xl mb-1">🎮</div>
           <div className="text-2xl font-bold text-white">
-            {isLoadingStats ? '...' : gameStats.totalGames}
+            {gameStats.totalGames}
           </div>
           <div className="text-sm text-blue-200">Total Games</div>
         </div>

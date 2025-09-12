@@ -71,9 +71,16 @@ export async function GET(request: Request) {
 
   if (player) {
     if (stats) {
-      // Obtener estadísticas combinadas para Home Tab
-      const combinedStats = gameDatabase.getCombinedStats(player);
-      return NextResponse.json({ stats: combinedStats });
+      // Las estadísticas ahora se manejan en el frontend con localStorage
+      // Este endpoint se mantiene para compatibilidad pero retorna datos vacíos
+      return NextResponse.json({ 
+        stats: {
+          totalGames: 0,
+          bestScore: 0,
+          gamesWon: 0,
+          totalScore: 0
+        }
+      });
     } else if (mode) {
       // Obtener juegos de un jugador específico por modo
       const playerGames = gameDatabase.getPlayerGamesByMode(player, mode);

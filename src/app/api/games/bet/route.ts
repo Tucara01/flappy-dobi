@@ -326,7 +326,7 @@ export async function PUT(request: NextRequest) {
 }
 
 /**
- * Función para debug
+ * Función para obtener todos los juegos de bet (para estadísticas)
  */
 export function getAllBetGames() {
   return Array.from(betGames.values());

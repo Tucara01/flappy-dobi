@@ -65,8 +65,8 @@ interface FlappyBirdGameProps {
   gameMode?: 'practice' | 'bet';
   onBackToHome?: () => void;
   playerAddress?: string;
-  onGameLost?: () => void;
-  onGameWon?: () => void;
+  onGameLost?: (score: number) => void;
+  onGameWon?: (score: number) => void;
 }
 
 const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBackToHome, playerAddress, onGameLost, onGameWon }) => {
@@ -646,7 +646,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         
         // Notify parent component that game was lost
         if (onGameLost) {
-          onGameLost();
+          onGameLost(gameState.score);
         }
         
         return { ...prevBird, y: 400 - BIRD_SIZE, velocity: 0 };
@@ -760,7 +760,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               
               // Notify parent component that game was won
               if (onGameWon) {
-                onGameWon();
+                onGameWon(newScore);
               }
               
               // Stop the game loop
@@ -894,7 +894,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         
         // Notify parent component that game was lost
         if (onGameLost) {
-          onGameLost();
+          onGameLost(gameState.score);
         }
       }
     });
