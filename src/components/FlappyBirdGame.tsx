@@ -397,18 +397,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     loadLeaderboard();
   }, [loadLeaderboard]);
 
-  // Statistics tracking functions
-  const updateGameStats = useCallback((score: number) => {
-    // Update high score
-    const currentHighScore = parseInt(localStorage.getItem('flappy-dobi-high-score') || '0', 10);
-    if (score > currentHighScore) {
-      localStorage.setItem('flappy-dobi-high-score', score.toString());
-    }
-    
-    // Update games played
-    const gamesPlayed = parseInt(localStorage.getItem('flappy-dobi-games-played') || '0', 10);
-    localStorage.setItem('flappy-dobi-games-played', (gamesPlayed + 1).toString());
-  }, []);
+  // Statistics are now handled by the parent component (HomeTab)
+  // Removed updateGameStats to avoid double counting
 
   // Game reward system functions
   const createGame = useCallback(async (mode: 'practice' | 'bet' = 'bet') => {
@@ -581,7 +571,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           // Submit score when game ends
           if (prev.score > 0) {
             submitScore(prev.score);
-            updateGameStats(prev.score);
           }
           
           // Notificar al backend si es un juego de bet mode
@@ -829,7 +818,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           // Submit score when game ends
           if (prev.score > 0) {
             submitScore(prev.score);
-            updateGameStats(prev.score);
           }
           
           // Notificar al backend si es un juego de bet mode
@@ -900,7 +888,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles, obstaclesEnabled, gameStats.gameStartTime, updateParticles, updatePowerUps, updateStars, checkPowerUpCollision, createParticles, createPowerUp, playGameOverSound, playScoreSound, playCollisionSound, submitScore, updateGameStats]);
+  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles, obstaclesEnabled, gameStats.gameStartTime, updateParticles, updatePowerUps, updateStars, checkPowerUpCollision, createParticles, createPowerUp, playGameOverSound, playScoreSound, playCollisionSound, submitScore]);
 
   // Start game loop
   useEffect(() => {
