@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
-import { HomeTab, WalletTab, ClaimTab } from "~/components/ui/tabs";
+import { HomeTab, WalletTab } from "~/components/ui/tabs";
 import { LoadingScreen } from "~/components/ui/LoadingScreen";
 import { USE_WALLET } from "~/lib/constants";
 import { useNeynarUser } from "../hooks/useNeynarUser";
@@ -14,7 +14,6 @@ import { useFarcasterSDK } from "../hooks/useFarcasterSDK";
 export enum Tab {
   Home = "home",
   Wallet = "wallet",
-  Claim = "claim",
 }
 
 export interface AppProps {
@@ -160,7 +159,6 @@ export default function App(
         {/* Tab content rendering */}
         {activeTab === Tab.Home && <HomeTab setActiveTab={setActiveTab} />}
         {activeTab === Tab.Wallet && <WalletTab />}
-        {activeTab === Tab.Claim && <ClaimTab />}
 
         {/* Footer with navigation */}
         <Footer activeTab={activeTab as Tab} setActiveTab={setActiveTab} showWallet={USE_WALLET} />

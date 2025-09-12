@@ -929,6 +929,12 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
 
   // Handle jump
   const handleJump = useCallback(async () => {
+    // En modo bet, no permitir reiniciar si el juego ya terminó
+    if (gameMode === 'bet' && gameState.isGameOver) {
+      console.log('🚫 Cannot restart game in bet mode after game over');
+      return;
+    }
+    
     if (!gameState.isPlaying) {
       console.log('🎮 Starting new game, mode:', gameMode);
       

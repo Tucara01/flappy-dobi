@@ -25,6 +25,16 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
     hasEnoughAllowance
   } = useFlappyDobiContract();
 
+  // Debug logging
+  console.log('ContractStatus render:', {
+    hasEnoughAllowance,
+    userDobiAllowance,
+    betAmount,
+    isConfirmed,
+    hasActiveGame,
+    currentGame: currentGame?.status
+  });
+
   const handleApprove = async () => {
     try {
       const hash = await approveDobi();
@@ -244,10 +254,17 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
                   onGameCreated(activeGameId);
                 }
               }}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-3 text-lg"
+              disabled={isLoading}
+              className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-4 px-6 rounded-lg transition-colors flex items-center justify-center gap-3 text-lg"
             >
-              <span>🎮</span>
-              Continue Game (ID: {activeGameId})
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              ) : (
+                <>
+                  <span>🎮</span>
+                  Continue Game (ID: {activeGameId})
+                </>
+              )}
             </button>
           </div>
         )}

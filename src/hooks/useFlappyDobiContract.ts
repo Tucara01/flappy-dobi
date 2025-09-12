@@ -194,7 +194,7 @@ const CONTRACT_ABI = [
 ] as const;
 
 // Direcciones del contrato (usando DOBI en lugar de USDC)
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "0x081bee6c172B4E25A225e29810686343787cED1F";
+const CONTRACT_ADDRESS = "0x081bee6c172B4E25A225e29810686343787cED1F";
 const DOBI_ADDRESS = "0x931eF8053E997b1Bab68d1E900a061305c0Ff4FB"; // DOBI token address
 
 // ABI del token DOBI
@@ -443,8 +443,8 @@ export function useFlappyDobiContract() {
     functionName: 'betAmount',
   });
 
-  // Usar el bet amount del contrato o el valor por defecto
-  const actualBetAmount = betAmount || BigInt(3500 * 1e18); // 3500 DOBI con 18 decimales
+  // Usar exactamente 3500 DOBI (no leer del contrato)
+  const actualBetAmount = BigInt(3500 * 1e18); // 3500 DOBI con 18 decimales
   
   console.log('Bet amount from contract:', betAmount);
   console.log('Actual bet amount:', actualBetAmount);
@@ -459,12 +459,25 @@ export function useFlappyDobiContract() {
   });
 
   // Hook para leer la allowance de DOBI
-  const { data: userDobiAllowance } = useReadContract({
+  const { data: userDobiAllowance, refetch: refetchAllowance } = useReadContract({
     address: DOBI_ADDRESS as `0x${string}`,
     abi: DOBI_ABI,
     functionName: 'allowance',
     args: address && CONTRACT_ADDRESS ? [address, CONTRACT_ADDRESS as `0x${string}`] : undefined,
   });
+
+  // Actualizar allowance cuando se confirme una transacción de aprobación
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      console.log('🔄 Transaction confirmed, refetching allowance...');
+      // Refetch allowance después de que se confirme cualquier transacción
+      // Usar un pequeño delay para asegurar que la transacción esté completamente procesada
+      setTimeout(() => {
+        console.log('🔄 Refetching allowance after delay...');
+        refetchAllowance();
+      }, 2000); // 2 segundos de delay
+    }
+  }, [isConfirmed, hash, refetchAllowance]);
 
   // Aprobar DOBI tokens
   const approveDobi = useCallback(async () => {
@@ -482,14 +495,12 @@ export function useFlappyDobiContract() {
     setError(null);
 
     try {
-      // Aprobar una cantidad mayor para evitar múltiples aprobaciones
-      const approveAmount = actualBetAmount * BigInt(10); // 10x el bet amount
-      
+      // Aprobar exactamente 3500 DOBI
       const hash = await writeContract({
         address: DOBI_ADDRESS as `0x${string}`,
         abi: DOBI_ABI,
         functionName: 'approve',
-        args: [CONTRACT_ADDRESS as `0x${string}`, approveAmount],
+        args: [CONTRACT_ADDRESS as `0x${string}`, actualBetAmount],
       });
 
       return hash;
