@@ -11,6 +11,7 @@ interface ContractStatusProps {
 const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimSuccess, gameResult }) => {
   const { address } = useAccount();
   const [isCreatingGame, setIsCreatingGame] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [hasCalledOnGameCreated, setHasCalledOnGameCreated] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [loadingStep, setLoadingStep] = useState(0);
@@ -45,12 +46,16 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
       // La aprobación se confirmó, crear el juego automáticamente
       const createGameAfterApproval = async () => {
         try {
-          // Activar loading inmediatamente para evitar que aparezca el botón amarillo
+          // Resetear estado de aprobación y activar loading para crear juego
+          setIsApproving(false);
           setIsCreatingGame(true);
+          setLoadingMessage('Creating game after approval...');
           const hash = await createGame();
           if (hash) {
+            console.log('🎮 Game creation initiated after approval');
           }
         } catch (error) {
+          console.error('Error creating game after approval:', error);
           setIsCreatingGame(false);
         }
       };
@@ -95,6 +100,7 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
       // Resetear toda la UI para volver al estado inicial
       setShowGameResult(false);
       setIsCreatingGame(false);
+      setIsApproving(false);
       setHasCalledOnGameCreated(false);
       setLoadingMessage('');
       setLoadingStep(0);
@@ -155,13 +161,17 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
     try {
       // Resetear estado para nuevo juego
       setHasCalledOnGameCreated(false);
+      setLoadingMessage('Approving DOBI tokens...');
+      setIsApproving(true);
       const hash = await approveDobi();
       if (hash) {
-        
+        console.log('🔓 Approval transaction sent:', hash);
         // El useEffect detectará cuando isConfirmed cambie y hasEnoughAllowance sea true
         // Reducido delay para respuesta más rápida
       }
     } catch (error) {
+      console.error('Error approving DOBI:', error);
+      setIsApproving(false);
     }
   };
 
@@ -169,11 +179,15 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
     try {
       // Resetear estado para nuevo juego
       setHasCalledOnGameCreated(false);
+      setLoadingMessage('Creating new game...');
+      setIsCreatingGame(true);
       const hash = await createGame();
       if (hash) {
+        console.log('🎮 Game creation transaction sent:', hash);
         // No activar loading aquí, se activará cuando isConfirmed sea true
       }
     } catch (error) {
+      console.error('Error creating game:', error);
       setIsCreatingGame(false);
     }
   };
@@ -234,6 +248,7 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
         // Resetear el estado del componente para volver al menú de bet
         setShowGameResult(false);
         setIsCreatingGame(false);
+        setIsApproving(false);
         setHasCalledOnGameCreated(false);
         setLoadingMessage('');
         setLoadingStep(0);
@@ -460,8 +475,8 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
       {/* Action Buttons - Solo mostrar si no hay resultado del juego */}
       {!showGameResult && (
         <div className="space-y-4">
-        {/* Show approve/create buttons only when no active game OR when game is lost, AND not creating game */}
-        {(!hasActiveGame || (hasActiveGame && currentGame?.status === 'Lost')) && !hasEnoughAllowance && !isCreatingGame && (
+        {/* Show approve button when no active game and not enough allowance and not creating game and not approving */}
+        {!hasActiveGame && !hasEnoughAllowance && !isCreatingGame && !isApproving && (
           <button
             onClick={handleApprove}
             disabled={isLoading}
@@ -478,7 +493,7 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
           </button>
         )}
 
-        {(!hasActiveGame || (hasActiveGame && currentGame?.status === 'Lost')) && hasEnoughAllowance && !isCreatingGame && (
+        {!hasActiveGame && hasEnoughAllowance && !isCreatingGame && !isApproving && (
           <button
             onClick={handleCreateGame}
             disabled={isLoading}
@@ -513,6 +528,34 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
           </button>
         )}
 
+
+        {/* Show loading state when approving */}
+        {isApproving && (
+          <div className="space-y-6">
+            <div className="text-center text-gray-600 py-4">
+              <div className="text-xl font-bold mb-3 flex items-center justify-center gap-3">
+                <span className="animate-pulse text-2xl">🔓</span> 
+                <span className="bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+                  {loadingMessage}
+                </span>
+              </div>
+              <div className="text-sm text-gray-500 mb-4">
+                Please wait while we approve your DOBI tokens...
+              </div>
+              {/* Progress bar */}
+              <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+                <div 
+                  className="bg-gradient-to-r from-yellow-500 to-orange-600 h-3 rounded-full transition-all duration-500 ease-out shadow-lg animate-pulse"
+                  style={{ width: '100%' }}
+                ></div>
+              </div>
+            </div>
+            <div className="w-full bg-gradient-to-r from-yellow-500 to-orange-600 text-white font-bold py-6 px-8 rounded-2xl flex items-center justify-center gap-4 text-xl shadow-2xl">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+              <span className="animate-pulse">Approving tokens...</span>
+            </div>
+          </div>
+        )}
 
         {/* Show loading state when creating game */}
         {isCreatingGame && (

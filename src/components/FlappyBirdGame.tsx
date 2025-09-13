@@ -70,10 +70,18 @@ interface FlappyBirdGameProps {
 }
 
 const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBackToHome, playerAddress, onGameLost, onGameWon }) => {
+  // Canvas bounds - Define before using
+  const CANVAS_WIDTH = 800;
+  const CANVAS_HEIGHT = 1200;
+  const CEILING_HEIGHT = 50; // Increased ceiling height
+  const GROUND_HEIGHT = CANVAS_HEIGHT - 100; // Increased ground height to account for scaling
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
   const hasNotifiedGameOver = useRef<boolean>(false);
+  const lastJumpTimeRef = useRef<number>(0);
+  const jumpCooldownRef = useRef<number>(20); // Reduced cooldown for better responsiveness
   
   // Sound effects
   const { playJumpSound, playScoreSound, playCollisionSound, playPowerUpSound, playGameOverSound } = useSound();
@@ -121,8 +129,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
 
   // Game objects
   const [bird, setBird] = useState<Bird>({
-    x: 200, // 2x
-    y: 300, // 2x
+    x: CANVAS_WIDTH / 4, // Start at 1/4 of canvas width
+    y: CANVAS_HEIGHT / 2, // Start at middle of canvas height
     velocity: 0,
     rotation: 0
   });
@@ -272,7 +280,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         if (canvas) {
           return createStars(canvas.width, canvas.height);
         } else {
-          return createStars(800, 600);
+          return createStars(CANVAS_WIDTH, CANVAS_HEIGHT);
         }
       }
       
@@ -383,7 +391,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           setStars(initialStars);
         } else {
           // Fallback: create stars with default dimensions
-          const fallbackStars = createStars(800, 600);
+          const fallbackStars = createStars(CANVAS_WIDTH, CANVAS_HEIGHT);
           setStars(fallbackStars);
         }
         
@@ -548,8 +556,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     const deltaTime = currentTime - lastTimeRef.current;
     lastTimeRef.current = currentTime;
 
-    // Enable obstacles after 2 seconds
-    if (!obstaclesEnabled && gameStats.gameStartTime > 0 && Date.now() - gameStats.gameStartTime > 2000) {
+    // Enable obstacles immediately when game starts
+    if (!obstaclesEnabled && gameStats.gameStartTime > 0) {
       setObstaclesEnabled(true);
     }
 
@@ -560,13 +568,13 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       const newRotation = Math.min(Math.max(newVelocity * 3, -30), 30);
 
       // Check ceiling collision
-      if (newY < 25) { // 2x - Ceiling at 25px from top
-        newY = 25;
+      if (newY < CEILING_HEIGHT) {
+        newY = CEILING_HEIGHT;
         return { ...prevBird, y: newY, velocity: 0, rotation: 0 };
       }
 
       // Check ground collision
-      if (newY > 1100 - BIRD_SIZE) { // 2x
+      if (newY > GROUND_HEIGHT - BIRD_SIZE) {
         setGameState(prev => {
           const newState = { ...prev, isGameOver: true };
           // Submit score when game ends
@@ -620,7 +628,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           onGameLost(gameState.score);
         }
         
-        return { ...prevBird, y: 400 - BIRD_SIZE, velocity: 0 };
+        return { ...prevBird, y: GROUND_HEIGHT - BIRD_SIZE, velocity: 0 };
       }
 
       return {
@@ -660,7 +668,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           obstacle.passed = true;
           // Only add points once per obstacle, not for each part
           setGameState(prev => {
-            const newScore = prev.score + 0.5;
+            const newScore = prev.score + 1;
             if (newScore > lastScore) {
               setLastScore(newScore);
               // Removed celebration splash effect
@@ -864,20 +872,27 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     };
   }, [gameState.isPlaying, gameState.isGameOver, gameLoop]);
 
-  // Handle jump
+  // Handle jump - Optimized for immediate response
   const handleJump = useCallback(async (): Promise<void> => {
+    const currentTime = Date.now();
+    
+    // Verificar cooldown para evitar saltos múltiples
+    if (currentTime - lastJumpTimeRef.current < jumpCooldownRef.current) {
+      return; // Silently ignore to reduce console spam
+    }
+    
+    lastJumpTimeRef.current = currentTime;
+    
     // En modo bet, no permitir reiniciar si el juego ya terminó
     if (gameMode === 'bet' && gameState.isGameOver) {
       return;
     }
     
     if (!gameState.isPlaying) {
-      
       // Create a new game when starting with the correct mode
       const gameId = await createGame(gameMode);
       
       // Iniciar el juego independientemente del gameId
-      // El gameId se actualizará cuando se confirme la transacción
       setGameState(prev => ({ 
         ...prev, 
         isPlaying: true,
@@ -887,8 +902,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         canClaimReward: false,
         gameId: gameId || undefined
       }));
-      hasNotifiedGameOver.current = false; // Reset notification flag for new game
-      setBird(prev => ({ ...prev, y: 300, velocity: 0, rotation: 0 })); // 2x
+      hasNotifiedGameOver.current = false;
+      setBird(prev => ({ ...prev, y: CANVAS_HEIGHT / 2, velocity: 0, rotation: 0 }));
       setObstacles([]);
       
       if (gameId) {
@@ -904,49 +919,92 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           gameStartTime: Date.now(),
           powerUpCounts: { magnet: 0, multiplier: 0 }
         });
-      } else if (!gameState.isGameOver) {
-        setBird(prev => ({ ...prev, velocity: JUMP_FORCE }));
-        createParticles(bird.x, bird.y, 5, '#ffffff');
-        playJumpSound();
-      } else {
-        // Restart game
-        setGameState(prev => ({ 
-          ...prev, 
-          isPlaying: false, 
-          isGameOver: false, 
-          score: 0 
-        }));
-        hasNotifiedGameOver.current = false; // Reset notification flag for restart
-        setBird({ x: 200, y: 300, velocity: 0, rotation: 0 }); // 2x
-        setObstacles([]);
-        setParticles([]);
-        setPowerUps([]);
-        setActivePowerUps({});
-        setShowCelebration(false);
-        setLastScore(0);
-        setObstaclesEnabled(false);
-        
-        // Reinitialize stars for restart
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const restartStars = createStars(canvas.width, canvas.height);
-          setStars(restartStars);
-        }
+        setObstaclesEnabled(true);
+      }
+    } else if (gameState.isPlaying && !gameState.isGameOver) {
+      // Saltar durante el juego - Optimizado para respuesta inmediata
+      setBird(prev => {
+        // Create particles at current bird position
+        createParticles(prev.x + BIRD_SIZE/2, prev.y + BIRD_SIZE/2, 5, '#ffffff');
+        return { ...prev, velocity: JUMP_FORCE };
+      });
+      playJumpSound();
+    } else if (gameState.isGameOver) {
+      // Restart game en modo práctica cuando termina
+      setGameState(prev => ({ 
+        ...prev, 
+        isPlaying: false, 
+        isGameOver: false, 
+        score: 0 
+      }));
+      hasNotifiedGameOver.current = false;
+      setBird({ x: CANVAS_WIDTH / 4, y: CANVAS_HEIGHT / 2, velocity: 0, rotation: 0 });
+      setObstacles([]);
+      setParticles([]);
+      setPowerUps([]);
+      setActivePowerUps({});
+      setShowCelebration(false);
+      setLastScore(0);
+      setObstaclesEnabled(false);
+      
+      // Reinitialize stars for restart
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const restartStars = createStars(canvas.width, canvas.height);
+        setStars(restartStars);
       }
     }
-  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, createParticles, playJumpSound, createStars, gameMode, createGame]);
+  }, [gameState.isPlaying, gameState.isGameOver, gameMode, createParticles, playJumpSound, createStars, createGame]);
 
-  // Handle keyboard and touch events
+  // Check game status function for bet mode
+  const checkGameStatus = useCallback(() => {
+    console.log('🎮 === GAME STATUS CHECK ===');
+    console.log('Game Mode:', gameMode);
+    console.log('Game ID:', gameState.gameId);
+    console.log('Contract Game ID:', contractGameId);
+    console.log('Is Playing:', gameState.isPlaying);
+    console.log('Is Game Over:', gameState.isGameOver);
+    console.log('Current Score:', gameState.score);
+    console.log('Has Won:', gameState.hasWon);
+    console.log('Can Claim Reward:', gameState.canClaimReward);
+    console.log('Has Active Game:', hasActiveGame);
+    console.log('Contract Loading:', contractLoading);
+    console.log('Contract Confirmed:', contractConfirmed);
+    console.log('Contract Error:', contractError);
+    console.log('Has Enough Allowance:', hasEnoughAllowance);
+    console.log('Bet Amount:', betAmount);
+    console.log('Transaction Hash:', hash);
+    console.log('========================');
+    
+    // Also log to terminal via console
+    console.log('🎮 Game Status - Mode:', gameMode, '| Game ID:', gameState.gameId, '| Contract ID:', contractGameId, '| Playing:', gameState.isPlaying, '| Score:', gameState.score);
+  }, [gameMode, gameState.gameId, contractGameId, gameState.isPlaying, gameState.isGameOver, gameState.score, gameState.hasWon, gameState.canClaimReward, hasActiveGame, contractLoading, contractConfirmed, contractError, hasEnoughAllowance, betAmount, hash]);
+
+  // Handle keyboard and touch events - Optimized for immediate response
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
+      // Verificar que no estemos en un input o textarea
+      if (e.target && (e.target as HTMLElement).tagName === 'INPUT' || 
+          (e.target as HTMLElement).tagName === 'TEXTAREA') {
+        return;
+      }
+      
+      // Múltiples formas de detectar espacio
+      const isSpace = e.key === ' ' || 
+                     e.code === 'Space' || 
+                     e.keyCode === 32 || 
+                     e.which === 32;
+      
+      if (isSpace) {
         e.preventDefault();
-        handleJump();
+        e.stopPropagation();
+        handleJump(); // Immediate execution
       }
     };
 
     const handleTouchStart = (e: TouchEvent) => {
       e.preventDefault();
+      console.log('🎮 Touch detected!'); // Debug
       handleJump();
     };
 
@@ -954,17 +1012,30 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       e.preventDefault();
     };
 
-    // Keyboard events
-    window.addEventListener('keydown', handleKeyPress);
+    // Usar keydown para respuesta inmediata
+    document.addEventListener('keydown', handleKeyPress as EventListener, { capture: true });
     
     // Touch events for mobile devices
     window.addEventListener('touchstart', handleTouchStart, { passive: false });
     window.addEventListener('touchend', handleTouchEnd, { passive: false });
     
+    // Debug: Log all key events
+    const debugKeyPress = (e: KeyboardEvent) => {
+      console.log('🔍 Key event:', {
+        key: e.key,
+        code: e.code,
+        keyCode: e.keyCode,
+        target: (e.target as HTMLElement)?.tagName
+      });
+    };
+    
+    document.addEventListener('keydown', debugKeyPress as EventListener);
+    
     return () => {
-      window.removeEventListener('keydown', handleKeyPress);
+      document.removeEventListener('keydown', handleKeyPress as EventListener, { capture: true });
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('keydown', debugKeyPress as EventListener);
     };
   }, [handleJump]);
 
@@ -1288,8 +1359,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       {/* Game Canvas - Fixed dimensions for proper scaling */}
       <canvas
         ref={canvasRef}
-        width={800}
-        height={1200}
+        width={CANVAS_WIDTH}
+        height={CANVAS_HEIGHT}
         className="w-full h-full object-cover touch-none"
         onClick={handleJump}
         style={{
@@ -1400,12 +1471,22 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               </div>
             </AnimatedText>
             <AnimatedText animation="cyber" variant="button" delay={500}>
-              <button
-                onClick={handleJump}
-                className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_rgba(0,255,255,0.5)] hover:shadow-[0_0_30px_rgba(0,255,255,0.8)] border border-cyan-400"
-              >
-                PLAY
-              </button>
+              <div className="flex flex-col gap-4 items-center">
+                <button
+                  onClick={handleJump}
+                  className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_20px_rgba(0,255,255,0.5)] hover:shadow-[0_0_30px_rgba(0,255,255,0.8)] border border-cyan-400"
+                >
+                  PLAY
+                </button>
+                {gameMode === 'bet' && (
+                  <button
+                    onClick={checkGameStatus}
+                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] hover:shadow-[0_0_25px_rgba(168,85,247,0.8)] border border-purple-400 text-sm"
+                  >
+                    CHECK GAME STATUS
+                  </button>
+                )}
+              </div>
             </AnimatedText>
           </div>
         )}
@@ -1415,7 +1496,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         {gameState.isPlaying && !gameState.isGameOver && (
           <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-center text-sm">
             <AnimatedText animation="neon" variant="button">
-              Tap to jump
+              Press SPACE to jump
             </AnimatedText>
           </div>
         )}

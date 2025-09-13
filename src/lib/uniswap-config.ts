@@ -120,3 +120,20 @@ export const ERC20_ABI = [
   "function symbol() external view returns (string)",
   "function name() external view returns (string)"
 ];
+
+// ABI del Factory para verificar existencia de pools
+export const FACTORY_ABI = [
+  {
+    "inputs": [
+      {"internalType": "address", "name": "tokenA", "type": "address"},
+      {"internalType": "address", "name": "tokenB", "type": "address"},
+      {"internalType": "uint24", "name": "fee", "type": "uint24"}
+    ],
+    "name": "getPool",
+    "outputs": [
+      {"internalType": "address", "name": "pool", "type": "address"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;

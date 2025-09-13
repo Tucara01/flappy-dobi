@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLeaderboard } from "../../../hooks/useLeaderboard";
 import { useAccount } from "wagmi";
 import { Tab } from "../../App";
@@ -40,41 +40,64 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
   const [gameMode, setGameMode] = useState<'home' | 'practice' | 'bet' | 'bet-game' | 'practice-game-over'>('home');
   const [gameResult, setGameResult] = useState<'won' | 'lost' | null>(null);
   const [practiceScore, setPracticeScore] = useState<number>(0);
+  const pendingGameResultRef = useRef<{score: number, gameMode: string, won: boolean} | null>(null);
 
-  // Handle game results
-  const handleGameLost = (score: number, gameMode: string) => {
-    if (address) {
-      updatePlayerStats(address, score, false);
-      setGameStats(getPlayerStats(address));
-    }
-    
-    // Solo ir a la pestaña de contrato si es bet mode
-    if (gameMode === 'bet') {
-      setGameResult('lost');
-      setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
-    } else {
-      // Para practice mode, mostrar pantalla de game over
-      setPracticeScore(score);
-      setGameMode('practice-game-over');
-    }
-  };
+  // Handle game results - usar ref para evitar actualizaciones durante renderizado
+  const handleGameLost = useCallback((score: number, gameMode: string) => {
+    pendingGameResultRef.current = { score, gameMode, won: false };
+    // Usar requestAnimationFrame para diferir la actualización
+    requestAnimationFrame(() => {
+      if (pendingGameResultRef.current) {
+        const { score, gameMode, won } = pendingGameResultRef.current;
+        
+        if (address) {
+          updatePlayerStats(address, score, won);
+          setGameStats(getPlayerStats(address));
+        }
+        
+        // Solo ir a la pestaña de contrato si es bet mode
+        if (gameMode === 'bet') {
+          setGameResult(won ? 'won' : 'lost');
+          setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
+        } else {
+          // Para practice mode, mostrar pantalla de game over
+          setPracticeScore(score);
+          setGameMode('practice-game-over');
+        }
+        
+        // Limpiar resultado pendiente
+        pendingGameResultRef.current = null;
+      }
+    });
+  }, [address]);
 
-  const handleGameWon = (score: number, gameMode: string) => {
-    if (address) {
-      updatePlayerStats(address, score, true);
-      setGameStats(getPlayerStats(address));
-    }
-    
-    // Solo ir a la pestaña de contrato si es bet mode
-    if (gameMode === 'bet') {
-      setGameResult('won');
-      setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
-    } else {
-      // Para practice mode, mostrar pantalla de game over con victoria
-      setPracticeScore(score);
-      setGameMode('practice-game-over');
-    }
-  };
+  const handleGameWon = useCallback((score: number, gameMode: string) => {
+    pendingGameResultRef.current = { score, gameMode, won: true };
+    // Usar requestAnimationFrame para diferir la actualización
+    requestAnimationFrame(() => {
+      if (pendingGameResultRef.current) {
+        const { score, gameMode, won } = pendingGameResultRef.current;
+        
+        if (address) {
+          updatePlayerStats(address, score, won);
+          setGameStats(getPlayerStats(address));
+        }
+        
+        // Solo ir a la pestaña de contrato si es bet mode
+        if (gameMode === 'bet') {
+          setGameResult(won ? 'won' : 'lost');
+          setGameMode('bet'); // Volver a la pestaña de contrato para mostrar resultado
+        } else {
+          // Para practice mode, mostrar pantalla de game over con victoria
+          setPracticeScore(score);
+          setGameMode('practice-game-over');
+        }
+        
+        // Limpiar resultado pendiente
+        pendingGameResultRef.current = null;
+      }
+    });
+  }, [address]);
 
   // Reset game result when starting a new game
   const resetGameResult = () => {
@@ -113,6 +136,39 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
     } catch (error) {
       // console.error('Error executing bet mode:', error);
       alert('Error executing bet mode. Please try again.');
+    }
+  };
+
+  // Function to check if game is running
+  const checkGameStatus = async () => {
+    if (!address) {
+      console.log('❌ No wallet address available');
+      return;
+    }
+
+    try {
+      console.log('🔍 Checking game status for address:', address);
+      
+      // Check if there's an active game in the contract
+      const response = await fetch(`/api/games/check-status?address=${address}`);
+      const data = await response.json();
+      
+      console.log('🎮 === GAME STATUS CHECK ===');
+      console.log('Wallet Address:', address);
+      console.log('Response Status:', response.status);
+      console.log('Response Data:', data);
+      console.log('Has Active Game:', data.hasActiveGame || false);
+      console.log('Game ID:', data.gameId || 'None');
+      console.log('Game Status:', data.status || 'None');
+      console.log('Score:', data.score || 'None');
+      console.log('========================');
+      
+      // Also log to terminal via console
+      console.log('🎮 Game Status - Address:', address, '| Active:', data.hasActiveGame || false, '| Game ID:', data.gameId || 'None', '| Status:', data.status || 'None');
+      
+    } catch (error) {
+      console.error('❌ Error checking game status:', error);
+      console.log('🎮 Game Status Check Failed - Address:', address, '| Error:', error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -158,6 +214,16 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
           <div className="text-sm text-gray-400">
             Bet Mode - Smart Contract
           </div>
+        </div>
+        
+        {/* Check Game Status Button */}
+        <div className="mb-4">
+          <button
+            onClick={checkGameStatus}
+            className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-400 hover:to-cyan-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.8)] border border-blue-400 text-sm"
+          >
+            🔍 Check if Game is Running
+          </button>
         </div>
         
         <ContractStatus 
