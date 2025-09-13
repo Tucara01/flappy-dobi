@@ -31,13 +31,6 @@ const nextConfig: NextConfig = {
       );
     }
 
-    // Configuración específica para el widget de Uniswap
-    config.module.rules.push({
-      test: /\.m?js$/,
-      resolve: {
-        fullySpecified: false,
-      },
-    });
 
     return config;
   },
@@ -47,8 +40,28 @@ const nextConfig: NextConfig = {
     esmExternals: 'loose',
   },
   
-  // Configuración para transpilar módulos específicos
-  transpilePackages: ['@uniswap/widgets'],
+
+  // Configuración de headers para solucionar Cross-Origin-Opener-Policy
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'unsafe-none',
+          },
+        ],
+      },
+    ];
+  },
+
+  // Configuración para evitar conflictos de React hooks
+  reactStrictMode: false,
 };
 
 export default nextConfig;
