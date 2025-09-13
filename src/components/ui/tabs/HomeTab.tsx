@@ -44,6 +44,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
 
   // Handle game results - usar ref para evitar actualizaciones durante renderizado
   const handleGameLost = useCallback((score: number, gameMode: string) => {
+    console.log(`🎮 Game Lost: Score: ${score}, Mode: ${gameMode}, Address: ${address}`);
     pendingGameResultRef.current = { score, gameMode, won: false };
     // Usar requestAnimationFrame para diferir la actualización
     requestAnimationFrame(() => {
@@ -51,7 +52,8 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
         const { score, gameMode, won } = pendingGameResultRef.current;
         
         if (address) {
-          updatePlayerStats(address, score, won);
+          console.log(`🎮 Updating player stats: Address: ${address}, Score: ${score}, Won: ${won}, Mode: ${gameMode}`);
+          updatePlayerStats(address, score, won, gameMode as 'practice' | 'bet');
           setGameStats(getPlayerStats(address));
         }
         
@@ -72,6 +74,7 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
   }, [address]);
 
   const handleGameWon = useCallback((score: number, gameMode: string) => {
+    console.log(`🎮 Game Won: Score: ${score}, Mode: ${gameMode}, Address: ${address}`);
     pendingGameResultRef.current = { score, gameMode, won: true };
     // Usar requestAnimationFrame para diferir la actualización
     requestAnimationFrame(() => {
@@ -79,7 +82,8 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
         const { score, gameMode, won } = pendingGameResultRef.current;
         
         if (address) {
-          updatePlayerStats(address, score, won);
+          console.log(`🎮 Updating player stats: Address: ${address}, Score: ${score}, Won: ${won}, Mode: ${gameMode}`);
+          updatePlayerStats(address, score, won, gameMode as 'practice' | 'bet');
           setGameStats(getPlayerStats(address));
         }
         

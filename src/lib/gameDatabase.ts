@@ -19,6 +19,54 @@ let betGames: Game[] = [];
 let nextGameId = 1;
 let activeGames: { [player: string]: number } = {}; // player -> gameId
 
+// Claves para localStorage
+const PRACTICE_GAMES_KEY = 'flappy-dobi-practice-games';
+const BET_GAMES_KEY = 'flappy-dobi-bet-games';
+const NEXT_GAME_ID_KEY = 'flappy-dobi-next-game-id';
+const ACTIVE_GAMES_KEY = 'flappy-dobi-active-games';
+
+// Cargar datos desde localStorage al inicializar
+function loadFromStorage() {
+  try {
+    const storedPractice = localStorage.getItem(PRACTICE_GAMES_KEY);
+    const storedBet = localStorage.getItem(BET_GAMES_KEY);
+    const storedNextId = localStorage.getItem(NEXT_GAME_ID_KEY);
+    const storedActive = localStorage.getItem(ACTIVE_GAMES_KEY);
+    
+    if (storedPractice) {
+      practiceGames = JSON.parse(storedPractice);
+    }
+    if (storedBet) {
+      betGames = JSON.parse(storedBet);
+    }
+    if (storedNextId) {
+      nextGameId = parseInt(storedNextId);
+    }
+    if (storedActive) {
+      activeGames = JSON.parse(storedActive);
+    }
+    
+    console.log(`📊 Loaded from storage: ${practiceGames.length} practice games, ${betGames.length} bet games, nextId: ${nextGameId}`);
+  } catch (error) {
+    console.warn('Error loading games from storage:', error);
+  }
+}
+
+// Guardar datos en localStorage
+function saveToStorage() {
+  try {
+    localStorage.setItem(PRACTICE_GAMES_KEY, JSON.stringify(practiceGames));
+    localStorage.setItem(BET_GAMES_KEY, JSON.stringify(betGames));
+    localStorage.setItem(NEXT_GAME_ID_KEY, nextGameId.toString());
+    localStorage.setItem(ACTIVE_GAMES_KEY, JSON.stringify(activeGames));
+  } catch (error) {
+    console.warn('Error saving games to storage:', error);
+  }
+}
+
+// Cargar datos al inicializar
+loadFromStorage();
+
 export const gameDatabase = {
   // Crear un nuevo juego
   createGame(player: string, mode: GameMode = 'bet'): Game {
@@ -40,6 +88,10 @@ export const gameDatabase = {
     }
     
     activeGames[player] = gameId;
+    
+    // Guardar en localStorage
+    saveToStorage();
+    
     return newGame;
   },
 
@@ -54,6 +106,8 @@ export const gameDatabase = {
     let gameIndex = practiceGames.findIndex(game => game.id === gameId);
     if (gameIndex !== -1) {
       practiceGames[gameIndex] = { ...practiceGames[gameIndex], ...updates };
+      // Guardar en localStorage
+      saveToStorage();
       return practiceGames[gameIndex];
     }
 
@@ -61,6 +115,8 @@ export const gameDatabase = {
     gameIndex = betGames.findIndex(game => game.id === gameId);
     if (gameIndex !== -1) {
       betGames[gameIndex] = { ...betGames[gameIndex], ...updates };
+      // Guardar en localStorage
+      saveToStorage();
       return betGames[gameIndex];
     }
 
@@ -69,7 +125,16 @@ export const gameDatabase = {
 
   // Obtener juegos de un jugador (todos los modos)
   getPlayerGames(player: string, limit?: number): Game[] {
-    let playerGames = [...practiceGames, ...betGames].filter(game => game.player === player);
+    console.log(`🔍 Searching for games for player: ${player}`);
+    console.log(`📊 Practice games: ${practiceGames.length}, Bet games: ${betGames.length}`);
+    
+    let playerGames = [...practiceGames, ...betGames].filter(game => {
+      const matches = game.player.toLowerCase() === player.toLowerCase();
+      console.log(`🎮 Game ${game.id}: player="${game.player}", matches=${matches}`);
+      return matches;
+    });
+    
+    console.log(`✅ Found ${playerGames.length} games for player`);
     playerGames.sort((a, b) => b.createdAt - a.createdAt); // Más recientes primero
     
     if (limit) {
@@ -144,5 +209,10 @@ export const gameDatabase = {
     betGames = [];
     nextGameId = 1;
     activeGames = {};
+    // Limpiar también localStorage
+    localStorage.removeItem(PRACTICE_GAMES_KEY);
+    localStorage.removeItem(BET_GAMES_KEY);
+    localStorage.removeItem(NEXT_GAME_ID_KEY);
+    localStorage.removeItem(ACTIVE_GAMES_KEY);
   }
 };

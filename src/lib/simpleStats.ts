@@ -3,6 +3,8 @@
  * Almacena las estadísticas del jugador de forma local y persistente
  */
 
+import { gameDatabase } from './gameDatabase';
+
 export interface PlayerStats {
   totalGames: number;
   bestScore: number;
@@ -58,7 +60,8 @@ export function savePlayerStats(playerAddress: string, stats: PlayerStats): void
 export function updatePlayerStats(
   playerAddress: string, 
   score: number, 
-  won: boolean = false
+  won: boolean = false,
+  gameMode: 'practice' | 'bet' = 'practice'
 ): PlayerStats {
   const currentStats = getPlayerStats(playerAddress);
   
@@ -70,7 +73,27 @@ export function updatePlayerStats(
     lastUpdated: Date.now()
   };
   
+  // Guardar estadísticas en localStorage
   savePlayerStats(playerAddress, newStats);
+  
+  // También guardar la partida en la base de datos para el historial
+  try {
+    console.log(`🎮 Saving game to database: Player: ${playerAddress}, Score: ${score}, Won: ${won}, Mode: ${gameMode}`);
+    
+    // Crear un nuevo juego en la base de datos
+    const game = gameDatabase.createGame(playerAddress, gameMode);
+    
+    // Actualizar el juego con el resultado final
+    gameDatabase.updateGame(game.id, {
+      status: won ? 'won' : 'lost',
+      score: score
+    });
+    
+    console.log(`✅ Game saved to database: ID ${game.id}, Score: ${score}, Won: ${won}, Mode: ${gameMode}`);
+  } catch (error) {
+    console.error('❌ Error saving game to database:', error);
+  }
+  
   return newStats;
 }
 

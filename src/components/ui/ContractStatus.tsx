@@ -59,8 +59,8 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
           setIsCreatingGame(false);
         }
       };
-      // Reducir delay a 1 segundo en lugar de esperar el useEffect
-      setTimeout(createGameAfterApproval, 1000);
+      // Reducir delay a 100ms para respuesta más rápida
+      setTimeout(createGameAfterApproval, 100);
     }
   }, [isConfirmed, hasEnoughAllowance, hasActiveGame, isCreatingGame, createGame]);
 
@@ -152,7 +152,7 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
         }
         return prev;
       });
-    }, 800); // Cambiar mensaje cada 800ms
+    }, 800); // Cambiar mensaje cada 800ms para coincidir con carga real
 
     return () => clearInterval(interval);
   }, [isCreatingGame]);

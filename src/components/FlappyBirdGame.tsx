@@ -130,7 +130,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   // Game objects
   const [bird, setBird] = useState<Bird>({
     x: CANVAS_WIDTH / 4, // Start at 1/4 of canvas width
-    y: CANVAS_HEIGHT / 2, // Start at middle of canvas height
+    y: CANVAS_HEIGHT / 3, // Start at 1/3 of canvas height (higher up)
     velocity: 0,
     rotation: 0
   });
@@ -903,7 +903,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         gameId: gameId || undefined
       }));
       hasNotifiedGameOver.current = false;
-      setBird(prev => ({ ...prev, y: CANVAS_HEIGHT / 2, velocity: 0, rotation: 0 }));
+      setBird(prev => ({ ...prev, y: CANVAS_HEIGHT / 3, velocity: 0, rotation: 0 }));
       setObstacles([]);
       
       if (gameId) {
@@ -1478,14 +1478,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
                 >
                   PLAY
                 </button>
-                {gameMode === 'bet' && (
-                  <button
-                    onClick={checkGameStatus}
-                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(168,85,247,0.5)] hover:shadow-[0_0_25px_rgba(168,85,247,0.8)] border border-purple-400 text-sm"
-                  >
-                    CHECK GAME STATUS
-                  </button>
-                )}
               </div>
             </AnimatedText>
           </div>

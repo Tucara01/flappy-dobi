@@ -436,7 +436,7 @@ export function useFlappyDobiContract() {
       // Usar un pequeño delay para asegurar que la transacción esté completamente procesada
       setTimeout(() => {
         refetchAllowance();
-      }, 2000); // 2 segundos de delay
+      }, 300); // 300ms de delay (mucho más rápido)
     }
   }, [isConfirmed, hash, refetchAllowance]);
 
