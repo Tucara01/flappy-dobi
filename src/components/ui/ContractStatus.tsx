@@ -295,6 +295,7 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
     }
   };
 
+
   // Función para volver al contrato (botón "Back to Contract")
   const handleBackToContract = async () => {
     if (!address) return;
@@ -475,6 +476,7 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
       {/* Action Buttons - Solo mostrar si no hay resultado del juego */}
       {!showGameResult && (
         <div className="space-y-4">
+        
         {/* Show approve button when no active game and not enough allowance and not creating game and not approving */}
         {!hasActiveGame && !hasEnoughAllowance && !isCreatingGame && !isApproving && (
           <button
@@ -556,6 +558,8 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
             </div>
           </div>
         )}
+
+
 
         {/* Show loading state when creating game */}
         {isCreatingGame && (

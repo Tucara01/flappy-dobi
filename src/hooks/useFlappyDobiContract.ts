@@ -595,6 +595,7 @@ export function useFlappyDobiContract() {
 
   // Verificar si tiene suficiente allowance
   const hasEnoughAllowance = userDobiAllowance && actualBetAmount ? userDobiAllowance >= actualBetAmount : false;
+  
 
   return {
     // Funciones principales

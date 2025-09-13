@@ -216,15 +216,6 @@ export function HomeTab({ setActiveTab }: HomeTabProps) {
           </div>
         </div>
         
-        {/* Check Game Status Button */}
-        <div className="mb-4">
-          <button
-            onClick={checkGameStatus}
-            className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-400 hover:to-cyan-500 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)] hover:shadow-[0_0_25px_rgba(59,130,246,0.8)] border border-blue-400 text-sm"
-          >
-            🔍 Check if Game is Running
-          </button>
-        </div>
         
         <ContractStatus 
           onGameCreated={(gameId) => {
