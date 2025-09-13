@@ -60,9 +60,7 @@ let account: ReturnType<typeof privateKeyToAccount>;
 try {
   const validPrivateKey = validateAndFormatPrivateKey(ownerPrivateKey);
   account = privateKeyToAccount(validPrivateKey);
-  // // console.log(`🔑 Owner address: ${account.address}`);
 } catch (error) {
-  // console.error('❌ Error creating account from private key:', error);
   throw new Error(`Invalid OWNER_PRIVATE_KEY: ${error}`);
 }
 
@@ -82,13 +80,11 @@ const publicClient = createPublicClient({
 // Función SIMPLIFICADA para establecer resultado - usa sendTransaction directamente
 async function setGameResult(gameId: number, won: boolean) {
   try {
-    // // console.log(`🎯 Estableciendo juego ${gameId} como ${won ? 'GANADO' : 'PERDIDO'}...`);
     
     // Verificar balance
     const balance = await publicClient.getBalance({
       address: account.address,
     });
-    // // console.log(`💰 Balance: ${balance} wei`);
 
     if (balance === 0n) {
       throw new Error('❌ Balance insuficiente para gas');
@@ -101,20 +97,15 @@ async function setGameResult(gameId: number, won: boolean) {
       args: [BigInt(gameId), won],
     });
 
-    // // console.log(`📦 Datos: ${data}`);
-
-    // Enviar transacción directamente - ESTO DEBE USAR eth_sendRawTransaction
-    // // console.log('📤 Enviando transacción...');
+    // Enviar transacción directamente
     const hash = await walletClient.sendTransaction({
       to: CONTRACT_ADDRESS as `0x${string}`,
       data,
     });
 
-    // // console.log(`✅ TX enviada: ${hash}`);
     return { hash };
     
   } catch (error: any) {
-    // console.error('❌ Error en setGameResult:', error);
     
     if (error.message?.includes('insufficient funds')) {
       throw new Error('Fondos insuficientes para gas');
@@ -145,14 +136,11 @@ const betGames = new Map<number, {
  */
 export async function POST(request: NextRequest) {
   try {
-    // // console.log('🔔 POST /api/games/bet - Game registration');
     const body = await request.json();
     const { gameId, playerAddress, contractHash, mode, status } = body;
 
-    // // console.log('📋 Body:', { gameId, playerAddress, contractHash, mode, status });
 
     if (!gameId || !playerAddress || !contractHash) {
-      // console.error('❌ Missing required fields');
       return NextResponse.json(
         { error: 'Missing required fields: gameId, playerAddress, contractHash' },
         { status: 400 }
@@ -168,7 +156,6 @@ export async function POST(request: NextRequest) {
       createdAt: Date.now()
     });
 
-    // // console.log(`✅ Game registered: ID ${gameId}`);
 
     return NextResponse.json({
       success: true,
@@ -177,7 +164,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    // console.error('❌ Error registering game:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -215,7 +201,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    // console.error('Error getting game:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -228,25 +213,20 @@ export async function GET(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    // // console.log('🔔 PUT /api/games/bet - Update request');
     const body = await request.json();
     const { gameId, score, result, playerAddress, contractHash } = body;
 
-    // // console.log('📋 Body:', { gameId, score, result, playerAddress, contractHash });
 
     if (!gameId) {
-      // console.error('❌ Missing gameId');
       return NextResponse.json(
         { error: 'gameId is required' },
         { status: 400 }
       );
     }
 
-    // // console.log(`🔍 Looking for game: ${gameId}`);
     let game = betGames.get(parseInt(gameId));
     
     if (!game) {
-      // // console.log(`⚠️ Game not found, creating: ${gameId}`);
       
       game = {
         gameId: parseInt(gameId),
@@ -260,53 +240,39 @@ export async function PUT(request: NextRequest) {
       };
       
       betGames.set(parseInt(gameId), game);
-      // // console.log(`✅ Game created:`, game);
-    } else {
-      // // console.log('✅ Game found:', game);
     }
 
-    // Actualizar el juego
-    const updatedGame = {
-      ...game,
-      ...(score !== undefined && { score }),
-      ...(result && { result }),
-      status: result === 'won' ? 'completed' : result === 'lost' ? 'completed' : game.status
-    };
-
-    betGames.set(parseInt(gameId), updatedGame);
-    // // console.log(`✅ Game updated:`, updatedGame);
-
-    // Determinar resultado automáticamente
+    // Determinar resultado automáticamente PRIMERO
     let finalResult = result;
     if (score !== undefined && !result) {
       finalResult = score >= 49 ? 'won' : 'lost';
-      // // console.log(`🎯 Auto result: score ${score} = ${finalResult}`);
-      
-      const autoUpdatedGame = {
-        ...updatedGame,
-        result: finalResult,
-        status: 'completed'
-      };
-      betGames.set(parseInt(gameId), autoUpdatedGame);
     }
+
+    // Actualizar el juego con el resultado final
+    const updatedGame = {
+      ...game,
+      ...(score !== undefined && { score }),
+      ...(finalResult && { result: finalResult }),
+      status: finalResult === 'won' || finalResult === 'lost' ? 'completed' : game.status
+    };
+
+    betGames.set(parseInt(gameId), updatedGame);
 
     // Actualizar contrato si hay resultado final
     if (finalResult === 'won' || finalResult === 'lost') {
       if (game.playerAddress && game.playerAddress !== 'unknown') {
-        // // console.log(`🔔 Actualizando contrato: Game ${gameId} ${finalResult}`);
         
         const won = finalResult === 'won';
         
         // Ejecutar en background para no bloquear la respuesta
         setGameResult(parseInt(gameId), won)
           .then((result) => {
-            // // console.log(`✅ Contrato actualizado: ${result.hash}`);
+            // Contrato actualizado exitosamente
           })
           .catch((error) => {
-            // console.error(`❌ Error actualizando contrato ${gameId}:`, error.message);
+            // Error actualizando contrato
           });
       } else {
-        // // console.log(`⚠️ Sin playerAddress, saltando contrato`);
       }
     }
 
@@ -317,7 +283,46 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
-    // console.error('❌ Error updating game:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/games/bet - Limpiar juego activo de un jugador
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { playerAddress } = body;
+
+    if (!playerAddress) {
+      return NextResponse.json(
+        { error: 'Player address is required' },
+        { status: 400 }
+      );
+    }
+
+    // Buscar y eliminar el juego activo del jugador
+    let gameRemoved = false;
+    for (const [gameId, game] of betGames.entries()) {
+      if (game.playerAddress === playerAddress) {
+        betGames.delete(gameId);
+        gameRemoved = true;
+        break;
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: gameRemoved ? 'Active game cleared' : 'No active game found',
+      gameRemoved
+    });
+
+  } catch (error) {
+    console.error('Error clearing active game:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

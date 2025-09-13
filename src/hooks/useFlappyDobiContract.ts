@@ -570,6 +570,29 @@ export function useFlappyDobiContract() {
             gameData[1] === 2 ? 'Lost' : 'Claimed'
   } : null;
 
+  // Si el juego está en "Pending" en el smart contract pero no existe en el backend,
+  // considerarlo como no activo para permitir crear un nuevo juego
+  const [backendGameExists, setBackendGameExists] = useState<boolean | null>(null);
+  
+  useEffect(() => {
+    if (hasActiveGame && activeGameId) {
+      // Verificar si el juego existe en el backend
+      fetch(`/api/games/check-status?gameId=${activeGameId}`)
+        .then(response => response.json())
+        .then(result => {
+          setBackendGameExists(result.success && result.data && result.data.betGame);
+        })
+        .catch(() => {
+          setBackendGameExists(false);
+        });
+    } else {
+      setBackendGameExists(null);
+    }
+  }, [hasActiveGame, activeGameId]);
+
+  // Solo considerar el juego activo si existe tanto en el smart contract como en el backend
+  const isGameReallyActive = hasActiveGame && (backendGameExists === null || backendGameExists);
+
   // Verificar si tiene suficiente allowance
   const hasEnoughAllowance = userDobiAllowance && actualBetAmount ? userDobiAllowance >= actualBetAmount : false;
 
@@ -582,7 +605,7 @@ export function useFlappyDobiContract() {
     ensureGameRegistered,
     
     // Estado del juego
-    hasActiveGame,
+    hasActiveGame: isGameReallyActive,
     currentGame,
     activeGameId: activeGameId ? Number(activeGameId) : null,
     contractGameId,

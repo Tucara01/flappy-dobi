@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useWaitForTransactionReceipt } from 'wagmi';
 import { useFlappyDobiContract } from '../../hooks/useFlappyDobiContract';
 
 interface ContractStatusProps {
@@ -15,6 +15,8 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
   const [loadingMessage, setLoadingMessage] = useState('');
   const [loadingStep, setLoadingStep] = useState(0);
   const [showGameResult, setShowGameResult] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimHash, setClaimHash] = useState<string | null>(null);
   const {
     approveDobi,
     createGame,
@@ -31,15 +33,12 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
     hasEnoughAllowance
   } = useFlappyDobiContract();
 
-  // Debug logging
-  // console.log('ContractStatus render:', {
-  //   hasEnoughAllowance,
-  //   userDobiAllowance,
-  //   betAmount,
-  //   isConfirmed,
-  //   hasActiveGame,
-  //   currentGame: currentGame?.status
-  // });
+  // Hook para detectar cuando la transacción de claim se confirma
+  const { data: claimReceipt, isSuccess: isClaimConfirmed } = useWaitForTransactionReceipt({
+    hash: claimHash as `0x${string}`,
+    enabled: !!claimHash,
+  });
+
 
   // Detectar cuando la aprobación se confirma y crear el juego automáticamente
   useEffect(() => {
@@ -51,10 +50,8 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
           setIsCreatingGame(true);
           const hash = await createGame();
           if (hash) {
-            // // console.log('Game creation transaction sent after approval:', hash);
           }
         } catch (error) {
-          // console.error('Error creating game after approval:', error);
           setIsCreatingGame(false);
         }
       };
@@ -69,7 +66,8 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
       // El juego terminó (ganó o perdió), mostrar resultado
       setHasCalledOnGameCreated(false);
       setShowGameResult(true);
-    } else if (!hasActiveGame || currentGame?.status === 'Pending') {
+    } else {
+      // No mostrar resultado si no hay juego activo o está pendiente
       setShowGameResult(false);
     }
   }, [hasActiveGame, currentGame?.status]);
@@ -87,6 +85,27 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
       setShowGameResult(true);
     }
   }, [gameResult]);
+
+  // Efecto para detectar cuando el claim se confirma
+  useEffect(() => {
+    if (isClaimConfirmed && claimReceipt) {
+      console.log('✅ Claim transaction confirmed!');
+      setIsClaiming(false);
+      setClaimHash(null);
+      
+      // Resetear toda la UI para volver al estado inicial
+      setShowGameResult(false);
+      setIsCreatingGame(false);
+      setHasCalledOnGameCreated(false);
+      setLoadingMessage('');
+      setLoadingStep(0);
+      
+      // Llamar callback de éxito si existe
+      if (onClaimSuccess) {
+        onClaimSuccess();
+      }
+    }
+  }, [isClaimConfirmed, claimReceipt, onClaimSuccess]);
 
   // Activar loading cuando la transacción de creación se confirma
   useEffect(() => {
@@ -139,13 +158,11 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
       setHasCalledOnGameCreated(false);
       const hash = await approveDobi();
       if (hash) {
-        // // console.log('DOBI approval transaction sent:', hash);
         
         // El useEffect detectará cuando isConfirmed cambie y hasEnoughAllowance sea true
         // Reducido delay para respuesta más rápida
       }
     } catch (error) {
-      // console.error('Error approving DOBI:', error);
     }
   };
 
@@ -155,11 +172,9 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
       setHasCalledOnGameCreated(false);
       const hash = await createGame();
       if (hash) {
-        // // console.log('Game creation transaction sent:', hash);
         // No activar loading aquí, se activará cuando isConfirmed sea true
       }
     } catch (error) {
-      // console.error('Error creating game:', error);
       setIsCreatingGame(false);
     }
   };
@@ -170,15 +185,14 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
     try {
       const hash = await claimWinnings(activeGameId);
       if (hash) {
-        // // console.log('Claim winnings transaction sent:', hash);
         if (onClaimSuccess) {
           onClaimSuccess();
         }
       }
     } catch (error) {
-      // console.error('Error claiming winnings:', error);
     }
   };
+
 
 
   const formatTokenAmount = (amount: number) => {
@@ -189,6 +203,94 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
     }
     // Si está en wei, convertir a DOBI
     return (amount / 1e18).toFixed(2);
+  };
+
+  // Función para verificar el estado real del juego en el backend
+  const checkGameStatus = async () => {
+    if (!address) return null;
+    
+    try {
+      const response = await fetch(`/api/games/check-status?playerAddress=${address}`);
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error checking game status:', error);
+      return null;
+    }
+  };
+
+  // Función para limpiar el estado del juego y resetear a bet mode
+  const clearGameState = async () => {
+    if (!address) return;
+    
+    try {
+      const response = await fetch('/api/games/clear-active-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerAddress: address })
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        // Resetear el estado del componente para volver al menú de bet
+        setShowGameResult(false);
+        setIsCreatingGame(false);
+        setHasCalledOnGameCreated(false);
+        setLoadingMessage('');
+        setLoadingStep(0);
+      }
+    } catch (error) {
+      console.error('Error clearing game state:', error);
+    }
+  };
+
+  // Función para manejar el claim
+  const handleClaim = async () => {
+    if (!address) return;
+    
+    // Verificar el estado real del juego
+    const gameStatus = await checkGameStatus();
+    
+    if (!gameStatus || !gameStatus.betGame) {
+      // No hay juego en el backend, limpiar estado y volver a bet mode
+      console.log('🔄 No game found in backend, resetting to bet mode...');
+      await clearGameState();
+      return;
+    }
+    
+    if (gameStatus.betGame.status === 'Won') {
+      // Hay un juego ganado, proceder con el claim del smart contract
+      console.log('💰 Claiming winnings from smart contract...');
+      setIsClaiming(true);
+      try {
+        const hash = await claimWinnings(gameStatus.betGame.gameId);
+        if (hash) {
+          setClaimHash(hash);
+          console.log('🔄 Claim transaction sent:', hash);
+        } else {
+          setIsClaiming(false);
+        }
+      } catch (error) {
+        console.error('Error claiming winnings:', error);
+        setIsClaiming(false);
+      }
+    } else {
+      // El juego no está marcado como ganado, limpiar estado y volver a bet mode
+      console.log('🔄 Game not won, resetting to bet mode...');
+      await clearGameState();
+    }
+  };
+
+  // Función para volver al contrato (botón "Back to Contract")
+  const handleBackToContract = async () => {
+    if (!address) return;
+    
+    
+    // Limpiar estado y ir a home
+    await clearGameState();
+    
+    // Navegar a home
+    window.location.href = '/';
   };
 
   // Componente para mostrar resultado del juego
@@ -236,14 +338,38 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
           )}
         </div>
 
-        {/* Loading Data */}
+        {/* Botón de Claim Inteligente */}
         <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 rounded-2xl border border-gray-200 shadow-lg">
-          <div className="flex items-center justify-center gap-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
-            <div className="text-center">
-              <div className="text-lg font-semibold text-gray-700">Loading data...</div>
-              <div className="text-sm text-gray-500">Processing your game results</div>
+          <div className="text-center">
+            <div className="text-lg font-semibold text-gray-700 mb-4">
+              {isWon ? 'Ready to claim your winnings!' : 'Game completed'}
             </div>
+            <button
+              onClick={handleClaim}
+              disabled={isClaiming}
+              className={`px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
+                isWon
+                  ? isClaiming
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-600 text-white'
+                    : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700'
+                  : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700'
+              }`}
+            >
+              {isWon 
+                ? isClaiming 
+                  ? '⏳ Claiming...' 
+                  : '💰 Claim Winnings'
+                : '🎮 Reset Bet Mode'
+              }
+            </button>
+            <p className="text-sm text-gray-500 mt-3">
+              {isWon 
+                ? isClaiming
+                  ? 'Please wait while your transaction is being processed...'
+                  : 'Click to claim your rewards from the smart contract'
+                : 'Click to reset and return to bet mode'
+              }
+            </p>
           </div>
         </div>
       </div>
@@ -304,8 +430,8 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
       </div>
       )}
 
-      {/* Current Game Status - Solo mostrar si no hay resultado del juego */}
-      {!showGameResult && hasActiveGame && currentGame && (
+      {/* Current Game Status - Solo mostrar si no hay resultado del juego y NO está pendiente */}
+      {!showGameResult && hasActiveGame && currentGame && currentGame.status !== 'Pending' && (
         <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl shadow-lg">
           <div className="flex items-center gap-3 mb-4">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-2 rounded-xl">
@@ -388,6 +514,7 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
           </button>
         )}
 
+
         {/* Show loading state when creating game */}
         {isCreatingGame && (
           <div className="space-y-6">
@@ -417,24 +544,6 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
         )}
 
 
-        {/* Mostrar mensaje cuando el juego está en progreso */}
-        {hasActiveGame && currentGame?.status === 'Pending' && (
-          <div className="space-y-4">
-            <div className="text-center text-gray-600 py-4">
-              <div className="text-xl font-bold animate-pulse flex items-center justify-center gap-3 mb-2">
-                <span className="text-2xl">🎮</span>
-                <span className="bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-                  Loading results...
-                </span>
-              </div>
-              <div className="text-sm text-gray-500">Processing your game data</div>
-            </div>
-            <div className="w-full bg-gradient-to-r from-green-500 to-blue-600 text-white font-bold py-5 px-8 rounded-2xl flex items-center justify-center gap-4 text-xl shadow-lg">
-              <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-white"></div>
-              <span>Analyzing performance...</span>
-            </div>
-          </div>
-        )}
         </div>
       )}
 

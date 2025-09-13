@@ -73,6 +73,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
+  const hasNotifiedGameOver = useRef<boolean>(false);
   
   // Sound effects
   const { playJumpSound, playScoreSound, playCollisionSound, playPowerUpSound, playGameOverSound } = useSound();
@@ -575,13 +576,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           
           // Notificar al backend si es un juego de bet mode
           if (gameMode === 'bet' && contractGameId && prev.gameId) {
-            // console.log('🔴 COLLISION - Notifying backend of bet game loss:', {
-            //   gameId: contractGameId,
-            //   score: prev.score,
-            //   result: 'lost',
-            //   gameMode: gameMode,
-            //   timestamp: new Date().toISOString()
-            // });
             
             const requestBody = { 
               gameId: contractGameId, 
@@ -591,11 +585,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               // El backend determinará automáticamente si es 'won' o 'lost' basado en el score
             };
             
-            // // console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
-            // // console.log('🎮 Game ID being sent to backend:', contractGameId);
             
             if (!contractGameId || contractGameId <= 0) {
-              // console.error('❌ Invalid game ID for bet mode:', contractGameId);
               return newState;
             }
             
@@ -604,26 +595,16 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(requestBody)
             }).then(response => {
-              // // console.log('📥 Response received:', {
-                //   status: response.status,
-              //   statusText: response.statusText,
-              //   ok: response.ok
-              // });
               
               if (response.ok) {
-                // // console.log('✅ Bet game loss notification sent successfully');
                 return response.json();
               } else {
-                // console.error('❌ Failed to notify bet game loss:', response.status);
                 return response.text().then(text => {
-                  // console.error('❌ Error response body:', text);
                   throw new Error(`HTTP ${response.status}: ${text}`);
                 });
               }
             }).then(data => {
-              // // console.log('📋 Response data:', data);
             }).catch(error => {
-              // console.error('❌ Error notifying bet game loss:', error);
             });
           }
           
@@ -633,8 +614,9 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         // Removed red splash effect on ground collision
         playGameOverSound();
         
-        // Notify parent component that game was lost
-        if (onGameLost) {
+        // Notify parent component that game was lost (only once)
+        if (onGameLost && !hasNotifiedGameOver.current) {
+          hasNotifiedGameOver.current = true;
           onGameLost(gameState.score);
         }
         
@@ -676,11 +658,9 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       newObstacles.forEach((obstacle, index) => {
         if (!obstacle.passed && obstacle.x + OBSTACLE_WIDTH < bird.x) {
           obstacle.passed = true;
-          // // console.log(`Obstacle ${index} passed! Bird x: ${bird.x}, Obstacle x: ${obstacle.x}`);
           // Only add points once per obstacle, not for each part
           setGameState(prev => {
             const newScore = prev.score + 0.5;
-            // // console.log('Score updated from', prev.score, 'to', newScore);
             if (newScore > lastScore) {
               setLastScore(newScore);
               // Removed celebration splash effect
@@ -701,7 +681,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               if (prev.gameId) {
                 if (gameMode === 'bet' && contractGameId) {
                   // Para juegos de bet, notificar al backend sobre la victoria
-                  // // console.log('Player won bet game! Notifying backend...');
                   
                   // Notificar al backend sobre la victoria (async)
                   fetch('/api/games/bet', {
@@ -714,12 +693,10 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
                     })
                   }).then(response => {
                     if (response.ok) {
-                      // // console.log('Bet game victory registered with backend');
                     } else {
                       response.text().then(text => console.warn('Failed to register bet game victory:', text));
                     }
                   }).catch(error => {
-                    // console.error('Error registering bet game victory:', error);
                   });
                   
                   // También enviar al endpoint de evaluación del contrato
@@ -822,13 +799,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
           
           // Notificar al backend si es un juego de bet mode
           if (gameMode === 'bet' && contractGameId && prev.gameId) {
-            // console.log('🔴 COLLISION - Notifying backend of bet game loss:', {
-            //   gameId: contractGameId,
-            //   score: prev.score,
-            //   result: 'lost',
-            //   gameMode: gameMode,
-            //   timestamp: new Date().toISOString()
-            // });
             
             const requestBody = { 
               gameId: contractGameId, 
@@ -838,11 +808,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               // El backend determinará automáticamente si es 'won' o 'lost' basado en el score
             };
             
-            // // console.log('📤 Sending PUT request to /api/games/bet with body:', requestBody);
-            // // console.log('🎮 Game ID being sent to backend:', contractGameId);
             
             if (!contractGameId || contractGameId <= 0) {
-              // console.error('❌ Invalid game ID for bet mode:', contractGameId);
               return newState;
             }
             
@@ -851,26 +818,18 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(requestBody)
             }).then(response => {
-              // // console.log('📥 Response received:', {
-              //   status: response.status,
-              //   statusText: response.statusText,
-              //   ok: response.ok
-              // });
               
               if (response.ok) {
-                // // console.log('✅ Bet game loss notification sent successfully');
                 return response.json();
               } else {
-                // console.error('❌ Failed to notify bet game loss:', response.status);
                 return response.text().then(text => {
-                  // console.error('❌ Error response body:', text);
                   throw new Error(`HTTP ${response.status}: ${text}`);
                 });
               }
             }).then(data => {
-              // // console.log('📋 Response data:', data);
+              
             }).catch(error => {
-              // console.error('❌ Error notifying bet game loss:', error);
+              console.error('❌ Error notifying bet game loss:', error);
             });
           }
           
@@ -880,8 +839,9 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         // Removed red splash effect on obstacle collision
         playCollisionSound();
         
-        // Notify parent component that game was lost
-        if (onGameLost) {
+        // Notify parent component that game was lost (only once)
+        if (onGameLost && !hasNotifiedGameOver.current) {
+          hasNotifiedGameOver.current = true;
           onGameLost(gameState.score);
         }
       }
@@ -905,19 +865,16 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   }, [gameState.isPlaying, gameState.isGameOver, gameLoop]);
 
   // Handle jump
-  const handleJump = useCallback(async () => {
+  const handleJump = useCallback(async (): Promise<void> => {
     // En modo bet, no permitir reiniciar si el juego ya terminó
     if (gameMode === 'bet' && gameState.isGameOver) {
-      // // console.log('🚫 Cannot restart game in bet mode after game over');
       return;
     }
     
     if (!gameState.isPlaying) {
-      // // console.log('🎮 Starting new game, mode:', gameMode);
       
       // Create a new game when starting with the correct mode
       const gameId = await createGame(gameMode);
-      // // console.log('🎮 Game creation result:', gameId);
       
       // Iniciar el juego independientemente del gameId
       // El gameId se actualizará cuando se confirme la transacción
@@ -930,52 +887,51 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         canClaimReward: false,
         gameId: gameId || undefined
       }));
+      hasNotifiedGameOver.current = false; // Reset notification flag for new game
       setBird(prev => ({ ...prev, y: 300, velocity: 0, rotation: 0 })); // 2x
       setObstacles([]);
       
       if (gameId) {
-        // // console.log('✅ Game started successfully with ID:', gameId);
+        setParticles([]);
+        setPowerUps([]);
+        setActivePowerUps({});
+        setShowCelebration(false);
+        setLastScore(0);
+        setObstaclesEnabled(false);
+        setGameStats({
+          powerUpsUsed: 0,
+          obstaclesPassed: 0,
+          gameStartTime: Date.now(),
+          powerUpCounts: { magnet: 0, multiplier: 0 }
+        });
+      } else if (!gameState.isGameOver) {
+        setBird(prev => ({ ...prev, velocity: JUMP_FORCE }));
+        createParticles(bird.x, bird.y, 5, '#ffffff');
+        playJumpSound();
       } else {
-        // // console.log('✅ Game started, waiting for transaction confirmation...');
-      }
-      setParticles([]);
-      setPowerUps([]);
-      setActivePowerUps({});
-      setShowCelebration(false);
-      setLastScore(0);
-      setObstaclesEnabled(false);
-      setGameStats({
-        powerUpsUsed: 0,
-        obstaclesPassed: 0,
-        gameStartTime: Date.now(),
-        powerUpCounts: { magnet: 0, multiplier: 0 }
-      });
-    } else if (!gameState.isGameOver) {
-      setBird(prev => ({ ...prev, velocity: JUMP_FORCE }));
-      createParticles(bird.x, bird.y, 5, '#ffffff');
-      playJumpSound();
-    } else {
-      // Restart game
-      setGameState(prev => ({ 
-        ...prev, 
-        isPlaying: false, 
-        isGameOver: false, 
-        score: 0 
-      }));
-      setBird({ x: 200, y: 300, velocity: 0, rotation: 0 }); // 2x
-      setObstacles([]);
-      setParticles([]);
-      setPowerUps([]);
-      setActivePowerUps({});
-      setShowCelebration(false);
-      setLastScore(0);
-      setObstaclesEnabled(false);
-      
-      // Reinitialize stars for restart
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const restartStars = createStars(canvas.width, canvas.height);
-        setStars(restartStars);
+        // Restart game
+        setGameState(prev => ({ 
+          ...prev, 
+          isPlaying: false, 
+          isGameOver: false, 
+          score: 0 
+        }));
+        hasNotifiedGameOver.current = false; // Reset notification flag for restart
+        setBird({ x: 200, y: 300, velocity: 0, rotation: 0 }); // 2x
+        setObstacles([]);
+        setParticles([]);
+        setPowerUps([]);
+        setActivePowerUps({});
+        setShowCelebration(false);
+        setLastScore(0);
+        setObstaclesEnabled(false);
+        
+        // Reinitialize stars for restart
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const restartStars = createStars(canvas.width, canvas.height);
+          setStars(restartStars);
+        }
       }
     }
   }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, createParticles, playJumpSound, createStars, gameMode, createGame]);
@@ -1294,7 +1250,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         // Use a small delay to ensure canvas is fully rendered
         const timer = setTimeout(() => {
           const initialStars = createStars(canvas.width, canvas.height);
-          // // console.log('Initializing stars with canvas dimensions:', canvas.width, 'x', canvas.height);
           setStars(initialStars);
         }, 100);
         
