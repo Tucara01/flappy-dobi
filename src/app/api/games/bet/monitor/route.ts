@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Importar la función para obtener todos los juegos de bet
-import { getAllBetGames } from '../route';
+// Simulamos el almacenamiento de juegos de bet (en producción esto sería una base de datos)
+const betGames = new Map<number, any>();
 
 /**
  * GET /api/games/bet/monitor
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status'); // 'active', 'completed', 'all'
     
-    const allGames = getAllBetGames();
+    const allGames = Array.from(betGames.values());
     
     let filteredGames = allGames;
     

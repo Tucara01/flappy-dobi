@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { betGameMonitor } from '../../../../../lib/betGameMonitor';
+import { betGameMonitor } from '~/lib/betGameMonitor';
 
 /**
  * POST /api/games/bet/monitor/control

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
-import { HomeTab, WalletTab } from "~/components/ui/tabs";
+import { HomeTab, BuyDobiTab, WalletTab } from "~/components/ui/tabs";
 import { LoadingScreen } from "~/components/ui/LoadingScreen";
 import { USE_WALLET } from "~/lib/constants";
 import { useNeynarUser } from "../hooks/useNeynarUser";
@@ -13,6 +13,7 @@ import { useFarcasterSDK } from "../hooks/useFarcasterSDK";
 // --- Types ---
 export enum Tab {
   Home = "home",
+  BuyDobi = "buy-dobi",
   Wallet = "wallet",
 }
 
@@ -158,6 +159,7 @@ export default function App(
 
         {/* Tab content rendering */}
         {activeTab === Tab.Home && <HomeTab setActiveTab={setActiveTab} />}
+        {activeTab === Tab.BuyDobi && <BuyDobiTab />}
         {activeTab === Tab.Wallet && <WalletTab />}
 
         {/* Footer with navigation */}

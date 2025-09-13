@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Filtrar juegos del jugador específico
-      const playerGames = allBetGames.filter(game => 
+      const playerGames = allBetGames.filter((game: any) => 
         game.playerAddress && game.playerAddress.toLowerCase() === playerAddress.toLowerCase()
       );
 
@@ -69,10 +69,10 @@ export async function GET(request: NextRequest) {
         betGames: playerGames,
         totalGames: playerGames.length,
         summary: {
-          activeGames: playerGames.filter(g => g.status === 'active' || g.status === 'Pending').length,
-          wonGames: playerGames.filter(g => g.status === 'Won' || g.status === 'won').length,
-          lostGames: playerGames.filter(g => g.status === 'Lost' || g.status === 'lost').length,
-          completedGames: playerGames.filter(g => g.status === 'completed' || g.status === 'Won' || g.status === 'Lost').length
+          activeGames: playerGames.filter((g: any) => g.status === 'active' || g.status === 'Pending').length,
+          wonGames: playerGames.filter((g: any) => g.status === 'Won' || g.status === 'won').length,
+          lostGames: playerGames.filter((g: any) => g.status === 'Lost' || g.status === 'lost').length,
+          completedGames: playerGames.filter((g: any) => g.status === 'completed' || g.status === 'Won' || g.status === 'Lost').length
         }
       });
     }

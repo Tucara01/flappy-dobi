@@ -332,7 +332,8 @@ export async function DELETE(request: NextRequest) {
 
 /**
  * Función para obtener todos los juegos de bet (para estadísticas)
+ * Esta función es interna y no se exporta para evitar conflictos con Next.js
  */
-export function getAllBetGames() {
+function getAllBetGames() {
   return Array.from(betGames.values());
 }

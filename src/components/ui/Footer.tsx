@@ -19,6 +19,15 @@ export const Footer: React.FC<FooterProps> = ({ activeTab, setActiveTab, showWal
         <span className="text-xl">🏠</span>
         <span className="text-xs mt-1">Home</span>
       </button>
+      <button
+        onClick={() => setActiveTab(Tab.BuyDobi)}
+        className={`flex flex-col items-center justify-center w-full h-full ${
+          activeTab === Tab.BuyDobi ? 'text-primary dark:text-primary-light' : 'text-gray-500 dark:text-gray-400'
+        }`}
+      >
+        <span className="text-xl">🛒</span>
+        <span className="text-xs mt-1">Buy DOBI</span>
+      </button>
       {showWallet && (
         <button
           onClick={() => setActiveTab(Tab.Wallet)}

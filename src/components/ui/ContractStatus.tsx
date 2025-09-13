@@ -36,7 +36,6 @@ const ContractStatus: React.FC<ContractStatusProps> = ({ onGameCreated, onClaimS
   // Hook para detectar cuando la transacción de claim se confirma
   const { data: claimReceipt, isSuccess: isClaimConfirmed } = useWaitForTransactionReceipt({
     hash: claimHash as `0x${string}`,
-    enabled: !!claimHash,
   });
 
 
