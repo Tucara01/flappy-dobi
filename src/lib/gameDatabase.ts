@@ -27,6 +27,11 @@ const ACTIVE_GAMES_KEY = 'flappy-dobi-active-games';
 
 // Cargar datos desde localStorage al inicializar
 function loadFromStorage() {
+  // Solo ejecutar en el cliente (navegador)
+  if (typeof window === 'undefined') {
+    return;
+  }
+  
   try {
     const storedPractice = localStorage.getItem(PRACTICE_GAMES_KEY);
     const storedBet = localStorage.getItem(BET_GAMES_KEY);
@@ -54,6 +59,11 @@ function loadFromStorage() {
 
 // Guardar datos en localStorage
 function saveToStorage() {
+  // Solo ejecutar en el cliente (navegador)
+  if (typeof window === 'undefined') {
+    return;
+  }
+  
   try {
     localStorage.setItem(PRACTICE_GAMES_KEY, JSON.stringify(practiceGames));
     localStorage.setItem(BET_GAMES_KEY, JSON.stringify(betGames));
@@ -209,10 +219,12 @@ export const gameDatabase = {
     betGames = [];
     nextGameId = 1;
     activeGames = {};
-    // Limpiar también localStorage
-    localStorage.removeItem(PRACTICE_GAMES_KEY);
-    localStorage.removeItem(BET_GAMES_KEY);
-    localStorage.removeItem(NEXT_GAME_ID_KEY);
-    localStorage.removeItem(ACTIVE_GAMES_KEY);
+    // Limpiar también localStorage (solo en cliente)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(PRACTICE_GAMES_KEY);
+      localStorage.removeItem(BET_GAMES_KEY);
+      localStorage.removeItem(NEXT_GAME_ID_KEY);
+      localStorage.removeItem(ACTIVE_GAMES_KEY);
+    }
   }
 };
