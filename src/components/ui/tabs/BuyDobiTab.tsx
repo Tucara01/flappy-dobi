@@ -57,26 +57,6 @@ export function BuyDobiTab() {
         </div>
       </div>
 
-      {/* Trading Instructions */}
-      <div className="bg-blue-900 border border-blue-600 rounded-lg p-4">
-        <h3 className="text-lg font-semibold text-blue-200 mb-3">How to Trade DOBI</h3>
-        <ol className="text-blue-300 text-sm space-y-2 list-decimal list-inside">
-          <li>Connect your wallet using the widget above</li>
-          <li>Ensure you're on Base network</li>
-          <li>Select the token you want to trade (ETH, USDC, or DOBI)</li>
-          <li>Enter the amount you want to swap</li>
-          <li>Review the exchange rate and slippage</li>
-          <li>Click "Swap" and confirm the transaction in your wallet</li>
-          <li>Wait for the transaction to be confirmed on Base network</li>
-        </ol>
-        
-        <div className="mt-4 p-3 bg-blue-800 rounded-lg">
-          <p className="text-blue-200 text-xs">
-            <strong>💡 Note:</strong> This widget uses direct Uniswap V3 integration on Base network. 
-            Make sure you have ETH for gas fees and sufficient balance of the token you want to trade.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
