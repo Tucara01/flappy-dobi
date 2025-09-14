@@ -142,7 +142,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   const [activePowerUps, setActivePowerUps] = useState<{[key: string]: number}>({});
   const [showCelebration, setShowCelebration] = useState(false);
   const [lastScore, setLastScore] = useState(0);
-  const [stars, setStars] = useState<Star[]>([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   
   // Pre-create gradients for better performance
@@ -215,52 +214,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     // }]);
   }, []);
 
-  const createStars = useCallback((canvasWidth: number, canvasHeight: number) => {
-    const newStars: Star[] = [];
-    const starCount = 60; // Reduced for better mobile performance
-    
-    // Create a grid-based distribution for more uniform coverage
-    const gridCols = Math.ceil(Math.sqrt(starCount * (canvasWidth / canvasHeight)));
-    const gridRows = Math.ceil(starCount / gridCols);
-    const cellWidth = (canvasWidth + 200) / gridCols; // +200 for off-screen stars
-    const cellHeight = canvasHeight / gridRows;
-    
-    let starIndex = 0;
-    
-    // Fill the grid with stars
-    for (let row = 0; row < gridRows && starIndex < starCount; row++) {
-      for (let col = 0; col < gridCols && starIndex < starCount; col++) {
-        // Add some randomness within each grid cell for natural look
-        const baseX = col * cellWidth;
-        const baseY = row * cellHeight;
-        const randomOffsetX = (Math.random() - 0.5) * cellWidth * 0.8; // 80% of cell width
-        const randomOffsetY = (Math.random() - 0.5) * cellHeight * 0.8; // 80% of cell height
-        
-        newStars.push({
-          x: Math.max(0, baseX + randomOffsetX), // Ensure stars don't go negative
-          y: Math.max(0, Math.min(canvasHeight - 1, baseY + randomOffsetY)), // Clamp to canvas height
-          size: Math.random() * 2 + 1, // Size between 1-3 pixels
-          speed: Math.random() * 0.5 + 0.1, // Speed between 0.1-0.6
-          opacity: Math.random() * 0.8 + 0.2 // Opacity between 0.2-1.0
-        });
-        starIndex++;
-      }
-    }
-    
-    // Add some additional random stars for extra variety
-    const remainingStars = starCount - newStars.length;
-    for (let i = 0; i < remainingStars; i++) {
-      newStars.push({
-        x: Math.random() * (canvasWidth + 200),
-        y: Math.random() * canvasHeight,
-        size: Math.random() * 2 + 1,
-        speed: Math.random() * 0.5 + 0.1,
-        opacity: Math.random() * 0.8 + 0.2
-      });
-    }
-    
-    return newStars;
-  }, []);
 
   const updatePowerUps = useCallback(() => {
     setPowerUps(prev => 
@@ -272,46 +225,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     );
   }, []);
 
-  const updateStars = useCallback((canvasWidth: number) => {
-    setStars(prev => {
-      // If no stars exist, create them
-      if (prev.length === 0) {
-        const canvas = canvasRef.current;
-        if (canvas) {
-          return createStars(canvas.width, canvas.height);
-        } else {
-          return createStars(CANVAS_WIDTH, CANVAS_HEIGHT);
-        }
-      }
-      
-      return prev.map(star => {
-        let newX = star.x - star.speed;
-        // Reset star position when it goes off screen
-        if (newX < -star.size) {
-          // Use a more uniform distribution for re-entry
-          const canvas = canvasRef.current;
-          const canvasHeight = canvas ? canvas.height : (window.innerHeight || 800);
-          
-          // Distribute re-entry across the full height more evenly
-          const heightSections = 8; // Divide height into 8 sections
-          const sectionHeight = canvasHeight / heightSections;
-          const randomSection = Math.floor(Math.random() * heightSections);
-          const randomY = randomSection * sectionHeight + Math.random() * sectionHeight;
-          
-          newX = canvasWidth + Math.random() * 200; // Randomize re-entry position
-          return {
-            ...star,
-            x: newX,
-            y: Math.max(0, Math.min(canvasHeight - 1, randomY)) // Clamp to canvas height
-          };
-        }
-        return {
-          ...star,
-          x: newX
-        };
-      });
-    });
-  }, [createStars]);
 
   const checkPowerUpCollision = useCallback(() => {
     powerUps.forEach(powerUp => {
@@ -384,16 +297,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         setImages(loadedImages);
         setImagesLoaded(true);
         
-        // Initialize stars for the starry background
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const initialStars = createStars(canvas.width, canvas.height);
-          setStars(initialStars);
-        } else {
-          // Fallback: create stars with default dimensions
-          const fallbackStars = createStars(CANVAS_WIDTH, CANVAS_HEIGHT);
-          setStars(fallbackStars);
-        }
         
         // App ready signal is now handled by the main App component
       } catch (error) {
@@ -785,11 +688,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     // Update background
     setBackgroundOffset(prev => (prev + 2) % 800); // Background scroll speed
 
-    // Update stars
-    const canvas = canvasRef.current;
-    if (canvas) {
-      updateStars(canvas.width);
-    }
 
     // Check collisions
     obstacles.forEach(obstacle => {
@@ -856,7 +754,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     });
 
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles, obstaclesEnabled, gameStats.gameStartTime, updateParticles, updatePowerUps, updateStars, checkPowerUpCollision, createParticles, createPowerUp, playGameOverSound, playScoreSound, playCollisionSound, submitScore]);
+  }, [gameState.isPlaying, gameState.isGameOver, bird.x, bird.y, obstacles, obstaclesEnabled, gameStats.gameStartTime, updateParticles, updatePowerUps, checkPowerUpCollision, createParticles, createPowerUp, playGameOverSound, playScoreSound, playCollisionSound, submitScore]);
 
   // Start game loop
   useEffect(() => {
@@ -947,14 +845,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       setLastScore(0);
       setObstaclesEnabled(false);
       
-      // Reinitialize stars for restart
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const restartStars = createStars(canvas.width, canvas.height);
-        setStars(restartStars);
-      }
     }
-  }, [gameState.isPlaying, gameState.isGameOver, gameMode, createParticles, playJumpSound, createStars, createGame]);
+  }, [gameState.isPlaying, gameState.isGameOver, gameMode, createParticles, playJumpSound, createGame]);
 
   // Check game status function for bet mode
   const checkGameStatus = useCallback(() => {
@@ -1050,41 +942,9 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw starry night sky background
-    // Create dark blue gradient background
-    const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    skyGradient.addColorStop(0, '#0B1426'); // Very dark blue
-    skyGradient.addColorStop(0.5, '#1A1A2E'); // Dark blue
-    skyGradient.addColorStop(1, '#16213E'); // Slightly lighter dark blue
+    // Clear canvas to make it transparent and show CSS background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    ctx.fillStyle = skyGradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw moving stars with futuristic effects (optimized)
-    ctx.save();
-    stars.forEach(star => {
-      ctx.globalAlpha = star.opacity;
-      
-      // Use simple colors instead of complex gradients for better performance
-      ctx.fillStyle = '#FFFFFF';
-      ctx.shadowColor = '#00FFFF';
-      ctx.shadowBlur = star.size * 1.5;
-      
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Add twinkling effect for larger stars only
-      if (star.size > 1.5) {
-        ctx.shadowColor = '#FFFFFF';
-        ctx.shadowBlur = 2;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.beginPath();
-        ctx.arc(star.x, star.y, star.size * 0.4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
-    ctx.restore();
 
     // Invisible ceiling - no visual rendering, only collision detection
 
@@ -1309,25 +1169,10 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
       
       ctx.restore();
     }
-  }, [images, backgroundOffset, obstacles, bird, imagesLoaded, powerUps, particles, activePowerUps, stars]);
+  }, [images, backgroundOffset, obstacles, bird, imagesLoaded, powerUps, particles, activePowerUps]);
 
   // Canvas dimensions are now fixed for consistent gameplay
 
-  // Initialize stars when images are loaded and canvas is ready
-  useEffect(() => {
-    if (imagesLoaded) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        // Use a small delay to ensure canvas is fully rendered
-        const timer = setTimeout(() => {
-          const initialStars = createStars(canvas.width, canvas.height);
-          setStars(initialStars);
-        }, 100);
-        
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [imagesLoaded, createStars]);
 
   // Render on every frame
   useEffect(() => {
@@ -1343,17 +1188,62 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
   }
 
   return (
-    <div className="relative w-full h-screen bg-gradient-to-b from-gray-900 via-blue-900 to-gray-900 overflow-hidden">
-      {/* Background stars for side areas */}
-      <div className="absolute inset-0 opacity-30">
-        <div className="absolute top-10 left-4 w-1 h-1 bg-cyan-400 rounded-full animate-pulse"></div>
-        <div className="absolute top-20 right-6 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
-        <div className="absolute top-32 left-8 w-1 h-1 bg-cyan-300 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-40 right-12 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '1.5s'}}></div>
-        <div className="absolute top-60 left-6 w-1 h-1 bg-cyan-400 rounded-full animate-pulse" style={{animationDelay: '2s'}}></div>
-        <div className="absolute top-80 right-8 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '2.5s'}}></div>
-        <div className="absolute top-96 left-12 w-1 h-1 bg-cyan-300 rounded-full animate-pulse" style={{animationDelay: '3s'}}></div>
-        <div className="absolute top-64 right-4 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '3.5s'}}></div>
+    <>
+      <style jsx>{`
+        @keyframes gradientShift {
+          0%, 100% { transform: translateX(0) translateY(0); }
+          25% { transform: translateX(10px) translateY(-5px); }
+          50% { transform: translateX(-5px) translateY(10px); }
+          75% { transform: translateX(5px) translateY(-10px); }
+        }
+        
+        @keyframes lightStreak {
+          0% { transform: translateX(-100%) skewY(-12deg); }
+          100% { transform: translateX(100%) skewY(-12deg); }
+        }
+        
+        @keyframes lightStreakReverse {
+          0% { transform: translateX(100%) skewY(12deg); }
+          100% { transform: translateX(-100%) skewY(12deg); }
+        }
+        
+        @keyframes gridMove {
+          0% { transform: translate(0, 0); }
+          100% { transform: translate(50px, 50px); }
+        }
+        
+        .animate-lightStreak {
+          animation: lightStreak 6s linear infinite;
+        }
+        
+        .animate-lightStreakReverse {
+          animation: lightStreakReverse 8s linear infinite;
+        }
+      `}</style>
+      <div className="relative w-full h-screen overflow-hidden">
+      {/* Futuristic Animated Background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-gray-900 via-blue-900 to-purple-900">
+        {/* Animated gradient layers for depth */}
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-transparent to-purple-500/10 animate-pulse"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-transparent to-cyan-400/20" 
+             style={{
+               background: 'linear-gradient(45deg, rgba(6, 182, 212, 0.1) 0%, transparent 50%, rgba(147, 51, 234, 0.1) 100%)',
+               animation: 'gradientShift 8s ease-in-out infinite'
+             }}></div>
+        
+        {/* Moving light streaks */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-cyan-400/5 to-transparent transform -skew-y-12 animate-lightStreak"></div>
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-purple-400/5 to-transparent transform skew-y-12 animate-lightStreakReverse"></div>
+        </div>
+        
+        {/* Animated grid pattern */}
+        <div className="absolute inset-0 opacity-20" 
+             style={{
+               backgroundImage: 'linear-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(6, 182, 212, 0.1) 1px, transparent 1px)',
+               backgroundSize: '50px 50px',
+               animation: 'gridMove 20s linear infinite'
+             }}></div>
       </div>
       
       {/* Game Canvas - Fixed dimensions for proper scaling */}
@@ -1361,7 +1251,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         ref={canvasRef}
         width={CANVAS_WIDTH}
         height={CANVAS_HEIGHT}
-        className="w-full h-full object-cover touch-none"
+        className="w-full h-full object-cover touch-none relative z-10"
         onClick={handleJump}
         style={{
           touchAction: 'none',
@@ -1385,7 +1275,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
 
         {/* Game Over Screen */}
         {gameState.isGameOver && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 pointer-events-auto">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 pointer-events-auto z-20">
             <AnimatedText animation="futuristic" variant="title" delay={200}>
               <div className="text-center mb-8">
                 <h2 className="mb-6 text-4xl font-bold text-white">GAME OVER</h2>
@@ -1461,7 +1351,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
 
         {/* Start Screen */}
         {!gameState.isPlaying && !gameState.isGameOver && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 pointer-events-auto">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 pointer-events-auto z-20">
             <AnimatedText animation="futuristic" variant="title" delay={0}>
               <div className="text-center mb-8">
                 <h1 className="mb-4">
@@ -1495,7 +1385,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
 
         {/* Leaderboard Modal */}
         {showLeaderboard && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 pointer-events-auto z-50">
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 pointer-events-auto z-30">
             <div className="bg-gray-900 rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold text-white">Leaderboard</h3>
@@ -1530,7 +1420,8 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
         />
         
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
