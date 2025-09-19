@@ -1,15 +1,19 @@
 import { NextResponse } from 'next/server';
-import { getNeynarClient } from '~/lib/neynar';
 
 export async function POST() {
   try {
-    const neynarClient = getNeynarClient();
-    const signer = await neynarClient.createSigner();
-    return NextResponse.json(signer);
+    // Mock signer creation
+    const mockSigner = {
+      signer_uuid: 'mock-signer-' + Math.random().toString(36).substring(2, 15),
+      public_key: '0x' + Math.random().toString(16).substring(2, 66),
+      status: 'approved',
+      created_at: new Date().toISOString(),
+    };
+    return NextResponse.json(mockSigner);
   } catch (error) {
-    console.error('Error fetching signer:', error);
+    console.error('Error creating signer:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch signer' },
+      { error: 'Failed to create signer' },
       { status: 500 }
     );
   }
@@ -27,15 +31,18 @@ export async function GET(request: Request) {
   }
 
   try {
-    const neynarClient = getNeynarClient();
-    const signer = await neynarClient.lookupSigner({
-      signerUuid,
-    });
-    return NextResponse.json(signer);
+    // Mock signer lookup
+    const mockSigner = {
+      signer_uuid: signerUuid,
+      public_key: '0x' + Math.random().toString(16).substring(2, 66),
+      status: 'approved',
+      created_at: new Date().toISOString(),
+    };
+    return NextResponse.json(mockSigner);
   } catch (error) {
-    console.error('Error fetching signed key:', error);
+    console.error('Error fetching signer:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch signed key' },
+      { error: 'Failed to fetch signer' },
       { status: 500 }
     );
   }

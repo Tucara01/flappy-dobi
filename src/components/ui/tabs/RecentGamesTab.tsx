@@ -12,7 +12,7 @@ interface GameHistory {
 }
 
 interface RecentGamesTabProps {
-  setActiveTab?: (tab: string) => void;
+  setActiveTab?: (tab: any) => void;
 }
 
 export function RecentGamesTab({ setActiveTab }: RecentGamesTabProps) {

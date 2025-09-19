@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getNeynarClient } from '~/lib/neynar';
 
 const requiredParams = ['message', 'signature'];
 
@@ -22,11 +21,15 @@ export async function GET(request: Request) {
   const signature = params.signature as string;
 
   try {
-    const client = getNeynarClient();
-    const data = await client.fetchSigners({ message, signature });
-    const signers = data.signers;
+    // Mock response for development
+    const mockSigners = [{
+      fid: 12345,
+      signer: '0x' + Math.random().toString(16).substring(2, 42),
+      created_at: new Date().toISOString(),
+    }];
+
     return NextResponse.json({
-      signers,
+      signers: mockSigners,
     });
   } catch (error) {
     console.error('Error fetching signers:', error);

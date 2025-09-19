@@ -252,7 +252,7 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
 
   useEffect(() => {
     const loadImages = async () => {
-      const imageNames = ['bird', 'deadge2', 'sky'];
+      const imageNames = ['bird', 'deadge2'];
       const loadedImages: {[key: string]: HTMLImageElement} = {};
 
       try {
@@ -265,9 +265,6 @@ const FlappyBirdGame: React.FC<FlappyBirdGameProps> = ({ gameMode = 'bet', onBac
               break;
             case 'deadge2':
               imagePath = '/game/sprites/deadge2.png';
-              break;
-            case 'sky':
-              imagePath = '/game/backgrounds/sky.png';
               break;
           }
           img.src = imagePath;

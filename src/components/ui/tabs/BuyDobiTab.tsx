@@ -20,7 +20,7 @@ export function BuyDobiTab() {
           Buy DOBI Token
         </h2>
         <p className="text-gray-300 text-xl max-w-2xl mx-auto">
-          Trade DOBI tokens on the world's leading decentralized exchange
+          Trade DOBI tokens on the world&apos;s leading decentralized exchange
         </p>
         <div className="flex items-center justify-center space-x-2 text-sm text-gray-400">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>

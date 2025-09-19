@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getNeynarClient } from '~/lib/neynar';
 
 export async function GET(request: Request) {
   try {
@@ -14,24 +13,23 @@ export async function GET(request: Request) {
       );
     }
 
-    const client = getNeynarClient();
-    const data = await client.fetchSigners({ message, signature });
-    const signers = data.signers;
+    // Mock response for development
+    const mockSigners = [{
+      fid: 12345,
+      signer: '0x' + Math.random().toString(16).substring(2, 42),
+      created_at: new Date().toISOString(),
+    }];
 
-    // Fetch user data if signers exist
-    let user = null;
-    if (signers && signers.length > 0 && signers[0].fid) {
-      const {
-        users: [fetchedUser],
-      } = await client.fetchBulkUsers({
-        fids: [signers[0].fid],
-      });
-      user = fetchedUser;
-    }
+    const mockUser = {
+      fid: 12345,
+      username: 'testuser',
+      display_name: 'Test User',
+      pfp_url: 'https://via.placeholder.com/150',
+    };
 
     return NextResponse.json({
-      signers,
-      user,
+      signers: mockSigners,
+      user: mockUser,
     });
   } catch (error) {
     console.error('Error in session-signers API:', error);

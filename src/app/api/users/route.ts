@@ -38,14 +38,18 @@ export async function GET(request: Request) {
   }
 
   try {
-    const neynar = new NeynarAPIClient({ apiKey });
+    // Mock response for development
     const fidsArray = fids.split(',').map(fid => parseInt(fid.trim()));
+    const mockUsers = fidsArray.map(fid => ({
+      fid,
+      username: `user_${fid}`,
+      display_name: `User ${fid}`,
+      pfp_url: null,
+      verified_addresses: [],
+      score: Math.floor(Math.random() * 1000)
+    }));
     
-    const { users } = await neynar.fetchBulkUsers({
-      fids: fidsArray,
-    });
-
-    return NextResponse.json({ users });
+    return NextResponse.json({ users: mockUsers });
   } catch (error) {
     // console.error('Failed to fetch users:', error);
     
